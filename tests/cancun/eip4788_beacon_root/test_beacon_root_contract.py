@@ -22,6 +22,7 @@ from typing import Dict, Iterator, List
 
 import pytest
 
+from ethereum_test_base_types import Bytes
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,
@@ -87,7 +88,9 @@ def test_beacon_root_contract_calls(
     """
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)],
+        blocks=[
+            Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)
+        ],
         post=post,
     )
 
@@ -133,7 +136,9 @@ def test_beacon_root_contract_timestamps(
     """
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)],
+        blocks=[
+            Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)
+        ],
         post=post,
     )
 
@@ -162,7 +167,9 @@ def test_calldata_lengths(
     """Tests the beacon root contract call using multiple invalid input lengths."""
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)],
+        blocks=[
+            Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)
+        ],
         post=post,
     )
 
@@ -195,7 +202,9 @@ def test_beacon_root_equal_to_timestamp(
     """
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)],
+        blocks=[
+            Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)
+        ],
         post=post,
     )
 
@@ -215,7 +224,9 @@ def test_tx_to_beacon_root_contract(
     """Tests the beacon root contract using a transaction with different types and data lengths."""
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)],
+        blocks=[
+            Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)
+        ],
         post=post,
     )
 
@@ -245,7 +256,9 @@ def test_invalid_beacon_root_calldata_value(
     """
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)],
+        blocks=[
+            Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)
+        ],
         post=post,
     )
 
@@ -394,7 +407,9 @@ def test_multi_block_beacon_root_timestamp_calls(
                 and timestamps_storage[t % Spec.HISTORY_BUFFER_LENGTH] == t
             )
             current_call_account_code += Op.SSTORE(
-                current_call_account_expected_storage.store_next(0x01 if call_valid else 0x00),
+                current_call_account_expected_storage.store_next(
+                    0x01 if call_valid else 0x00
+                ),
                 Op.CALL(
                     call_gas,
                     Spec.BEACON_ROOTS_ADDRESS,
@@ -408,7 +423,9 @@ def test_multi_block_beacon_root_timestamp_calls(
 
             current_call_account_code += Op.SSTORE(
                 current_call_account_expected_storage.store_next(
-                    roots_storage[t % Spec.HISTORY_BUFFER_LENGTH] if call_valid else 0x00
+                    roots_storage[t % Spec.HISTORY_BUFFER_LENGTH]
+                    if call_valid
+                    else 0x00
                 ),
                 Op.MLOAD(0x20),
             )
@@ -516,7 +533,9 @@ def test_beacon_root_transition(
                 and timestamps_storage[t % Spec.HISTORY_BUFFER_LENGTH] == t
             )
             current_call_account_code += Op.SSTORE(
-                current_call_account_expected_storage.store_next(0x01 if call_valid else 0x00),
+                current_call_account_expected_storage.store_next(
+                    0x01 if call_valid else 0x00
+                ),
                 Op.CALL(
                     call_gas,
                     Spec.BEACON_ROOTS_ADDRESS,
@@ -530,7 +549,9 @@ def test_beacon_root_transition(
 
             current_call_account_code += Op.SSTORE(
                 current_call_account_expected_storage.store_next(
-                    roots_storage[t % Spec.HISTORY_BUFFER_LENGTH] if call_valid else 0x00
+                    roots_storage[t % Spec.HISTORY_BUFFER_LENGTH]
+                    if call_valid
+                    else 0x00
                 ),
                 Op.MLOAD(0x20),
             )
@@ -623,7 +644,8 @@ def test_no_beacon_root_contract_at_transition(
         Spec.BEACON_ROOTS_ADDRESS: Account(
             storage={
                 timestamp % Spec.HISTORY_BUFFER_LENGTH: 0,
-                (timestamp % Spec.HISTORY_BUFFER_LENGTH) + Spec.HISTORY_BUFFER_LENGTH: 0,
+                (timestamp % Spec.HISTORY_BUFFER_LENGTH)
+                + Spec.HISTORY_BUFFER_LENGTH: 0,
             },
             code=b"",
             nonce=0,
@@ -690,7 +712,9 @@ def test_beacon_root_contract_deploy(
     blocks: List[Block] = []
 
     beacon_root_contract_storage: Dict = {}
-    for i, current_timestamp in enumerate(range(timestamp // 2, timestamp + 1, timestamp // 2)):
+    for i, current_timestamp in enumerate(
+        range(timestamp // 2, timestamp + 1, timestamp // 2)
+    ):
         if i == 0:
             blocks.append(
                 Block(  # Deployment block
@@ -718,9 +742,12 @@ def test_beacon_root_contract_deploy(
                     ],
                 )
             )
-            beacon_root_contract_storage[current_timestamp % Spec.HISTORY_BUFFER_LENGTH] = 0
             beacon_root_contract_storage[
-                (current_timestamp % Spec.HISTORY_BUFFER_LENGTH) + Spec.HISTORY_BUFFER_LENGTH
+                current_timestamp % Spec.HISTORY_BUFFER_LENGTH
+            ] = 0
+            beacon_root_contract_storage[
+                (current_timestamp % Spec.HISTORY_BUFFER_LENGTH)
+                + Spec.HISTORY_BUFFER_LENGTH
             ] = 0
         elif i == 1:
             blocks.append(
@@ -745,11 +772,12 @@ def test_beacon_root_contract_deploy(
                     ],
                 ),
             )
-            beacon_root_contract_storage[current_timestamp % Spec.HISTORY_BUFFER_LENGTH] = (
-                current_timestamp
-            )
             beacon_root_contract_storage[
-                (current_timestamp % Spec.HISTORY_BUFFER_LENGTH) + Spec.HISTORY_BUFFER_LENGTH
+                current_timestamp % Spec.HISTORY_BUFFER_LENGTH
+            ] = current_timestamp
+            beacon_root_contract_storage[
+                (current_timestamp % Spec.HISTORY_BUFFER_LENGTH)
+                + Spec.HISTORY_BUFFER_LENGTH
             ] = beacon_root
         else:
             raise AssertionError("This test should only have two blocks")
@@ -784,4 +812,23 @@ def test_beacon_root_contract_deploy(
         pre=pre,
         blocks=blocks,
         post=post,
+    )
+
+
+@pytest.mark.with_all_system_contracts
+@pytest.mark.valid_from("Cancun")
+def test_system_contract_reverts(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    system_contract: int,
+):
+    """
+    Test a system contract that reverts when called.
+    """
+    sys_account = Account(
+        code=Bytecode(Op.PUSH0 + Op.REVERT), nonce=0, balance=0, storage={}
+    )
+    pre[system_contract] = sys_account
+    blockchain_test(
+        pre=pre, blocks=[Block()], post={system_contract: sys_account}
     )
