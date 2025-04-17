@@ -1,6 +1,7 @@
 """A state test for [EIP-7702 SetCodeTX](https://eips.ethereum.org/EIPS/eip-7702)."""
 
 from enum import Enum, IntEnum
+from typing import Callable
 
 import pytest
 
@@ -28,6 +29,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types.eof.v1 import Container, Section
 from ethereum_test_vm import Macros
 
+from src.ethereum_test_base_types import Address
 from .spec import Spec, ref_spec_7702
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7702.git_path
@@ -1749,4 +1751,84 @@ def test_set_code_type_tx_pre_fork(
                 storage={},
             ),
         },
+    )
+
+
+@pytest.mark.parametrize(
+    "gen_invalid_designation_func",
+    (
+        pytest.param(
+            lambda addr: Bytes(Spec.delegation_designation(addr) + b"\x00"),
+            id="valid_prefix_address_length_over"
+        ),
+        pytest.param(
+            lambda addr: Bytes(Spec.delegation_designation(addr)[:-1]),
+            id="valid_prefix_address_length_under"
+        ),
+        pytest.param(
+            lambda addr: Bytes(Bytes("ef01") + addr),
+            id="ef01_invalid_prefix_valid_address"
+        ),
+        pytest.param(
+            lambda addr: Bytes(Bytes("ef0101") + addr),
+            id="ef0101_invalid_prefix_valid_address"
+        ),
+        pytest.param(
+            lambda addr: Bytes(Bytes("ef0200") + addr),
+            id="ef0200_invalid_prefix_valid_address"
+        ),
+        pytest.param(
+            lambda addr: Bytes(Bytes("ef0201") + addr),
+            id="ef0201_invalid_prefix_valid_address"
+        ),
+    )
+)
+@pytest.mark.valid_from("Prague")
+def test_set_code_on_invalid_delegation_designation_patterns(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    gen_invalid_designation_func: Callable[[Address], Bytes],
+) -> None:
+    """
+    Test sending a transaction where the delegation designation pattern is invalid.
+    """
+    sender = pre.fund_eoa()
+
+    contract_addr = pre.deploy_contract(code=Op.SSTORE(0, 1))
+    invalid_delegation_designation = gen_invalid_designation_func(contract_addr)
+
+    invalid_state_acct = pre.fund_eoa(nonce=1)
+    pre[invalid_state_acct] = Account(
+        storage={},
+        # set invalid delegation designation in pre-state
+        code=invalid_delegation_designation,
+    )
+
+    tx = Transaction(
+        to=invalid_state_acct,
+        gas_limit=1_000_000,
+        data=b"",
+        value=0,
+        sender=sender,
+        authorization_list=[
+            AuthorizationTuple(
+                # tries to clear code but should never get there
+                address=Address(0),
+                nonce=1,
+                signer=invalid_state_acct,
+            )
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(storage={}),
+            contract_addr: Account(storage={}),
+            invalid_state_acct: Account(
+                storage={},
+                code=invalid_delegation_designation,
+            ),
+        }
     )
