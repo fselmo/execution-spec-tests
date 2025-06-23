@@ -108,9 +108,15 @@ class StateStaticTest(StateTestInFiller, BaseStaticTest):
                 if parsed.tag_type == "contract":
                     # Use deploy_contract to get next contract address
                     # We'll deploy with empty code for now, just to reserve the address
-                    address = alloc.deploy_contract(code=b"")
-                    self._tag_to_address_map[test_id][parsed.original_string] = address
-                    return address
+                    if parsed.tag_name == "sender":
+                        eoa = alloc.fund_eoa(amount=0)
+                        self._tag_to_address_map[test_id][parsed.original_string] = Address(eoa)
+                        self._tag_to_eoa_map[test_id][parsed.original_string] = eoa
+                        return Address(eoa)
+                    else:
+                        address = alloc.deploy_contract(code=b"")
+                        self._tag_to_address_map[test_id][parsed.original_string] = address
+                        return address
                 elif parsed.tag_type == "eoa":
                     # Use fund_eoa to get next EOA
                     eoa = alloc.fund_eoa(amount=0)  # Don't fund yet, just get the address
@@ -126,30 +132,21 @@ class StateStaticTest(StateTestInFiller, BaseStaticTest):
     def _resolve_tags_in_code(self, code_str: str, test_id: str, fork: Fork) -> str:
         """Resolve address tags in code strings before compilation."""
         tag_pattern = r"<(eoa|contract):[^>]+>"
-        is_raw_hex = ":raw" in code_str
 
         def replace_tag(match):
             tag_str = match.group(0)
             parsed = parse_address_or_tag(tag_str)
             if isinstance(parsed, AddressTag):
                 address = self._resolve_address_or_tag(tag_str, test_id, fork)
-
-                # For :raw format, always return address without 0x prefix
-                if is_raw_hex:
-                    return str(address)[2:]
-
-                # For other formats, check if we're inside a hex string
                 start_pos = match.start()
-                # Find the last occurrence of '0x' before the tag
-                prefix_pos = code_str.rfind("0x", 0, start_pos)
-                if prefix_pos != -1:
-                    # Check if all characters between '0x' and the tag are hex digits
-                    between_content = code_str[prefix_pos + 2 : start_pos]
-                    if all(c in "0123456789abcdefABCDEF" for c in between_content):
-                        # We're inside bytecode, return address without 0x prefix
-                        return str(address)[2:]
-
-                # Default: return the address as hex string with 0x prefix
+                preceeding_2chars = code_str[start_pos - 2 : start_pos]
+                if not (
+                    preceeding_2chars == "0x" or any(kw in preceeding_2chars for kw in [" ", "("])
+                ):
+                    # - If the tag is not preceded by 0x, we're inside a hex string
+                    # - If the tag is preceded by a space, we'd need the 0x prefix
+                    # return the address without the 0x prefix
+                    return str(address)[2:]
                 return str(address)
             return tag_str
 
@@ -322,7 +319,7 @@ class StateStaticTest(StateTestInFiller, BaseStaticTest):
         # Get the same registry key logic as _get_alloc_for_test
         for addr_str in self.pre.keys():
             parsed = parse_address_or_tag(addr_str)
-            if isinstance(parsed, AddressTag) and parsed.tag_type == "eoa":
+            if isinstance(parsed, AddressTag) and parsed.tag_name == "sender":
                 # Found the sender EOA - get it from our registry
                 if parsed.original_string in self._tag_to_eoa_map.get(test_id, {}):
                     sender_eoa = self._tag_to_eoa_map[test_id][parsed.original_string]
@@ -335,10 +332,13 @@ class StateStaticTest(StateTestInFiller, BaseStaticTest):
             if isinstance(general_tr.secret_key, str) and general_tr.secret_key.startswith(
                 "<sender:key:"
             ):
-                # This should not never happen so fail hard here as a sanity check
-                raise ValueError(
-                    "Test has sender key tag but no corresponding EOA tag in pre state"
-                )
+                # Perhaps this is a test that is trying to test non-existing accounts,
+                # use a generated EOA's key anyhow, funded as `0` (since not in pre state)
+                sender_eoa = self._get_alloc_for_test(test_id, fork).fund_eoa(amount=0)
+                if sender_eoa.key is not None:
+                    secret_key_to_use = sender_eoa.key
+                else:
+                    raise ValueError(f"Sender EOA has no key: {sender_eoa}")
             else:
                 # This is a test that has not been converted to use tagging either
                 # because it needs hard-coded addresses or because of some other reason.

@@ -1,7 +1,7 @@
 {
     "StackUnderFlowContractCreation" : {
         "env" : {
-            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentCoinbase" : "<eoa:0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba>",
             "currentDifficulty" : "0x020000",
             "currentGasLimit" : "1000000000000000",
             "currentNumber" : "1",
@@ -11,7 +11,7 @@
             {
                 "network" : [">=Cancun"],
                 "result" : {
-                    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+                    "<contract:creation:0x6295ee1b4f6dd65047762f924ecd367c17eabf8f>" : {
                         "shouldnotexist" : "1"
                     },
                     "<eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>" : {
@@ -21,7 +21,7 @@
             }
         ],
         "pre" : {
-            "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba" : {
+            "<eoa:0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba>" : {
                 "balance" : "0",
                 "nonce" : "1",
                 "code" : "",
