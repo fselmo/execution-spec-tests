@@ -29,9 +29,9 @@ doubleSelfdestructTouch_Paris:
         {
           let v0 := callvalue()
           let v1 := shr(1, v0)
-          let r1 := call(70000, 0xdead, v1, 0, 0, 0, 0)
+          let r1 := call(70000, <contract:0x000000000000000000000000000000000000dead>, v1, 0, 0, 0, 0)
           let v2 := sub(v0, v1)
-          let r2 := call(70000, 0xdead, v2, 0, 0, 0, 0)
+          let r2 := call(70000, <contract:0x000000000000000000000000000000000000dead>, v2, 0, 0, 0, 0)
         }
 
     # Selfdestruct
@@ -48,14 +48,14 @@ doubleSelfdestructTouch_Paris:
         }
 
     # Empty account 1
-    <eoa:0x0000000000000000000000000000000000e49701>:
+    0000000000000000000000000000000000e49701:
       nonce: 0
       balance: 10
       storage: {}
       code: ""
 
     # Empty account 2
-    <eoa:0x0000000000000000000000000000000000e49702>:
+    0000000000000000000000000000000000e49702:
       nonce: 0
       balance: 10
       storage: {}
@@ -89,9 +89,9 @@ doubleSelfdestructTouch_Paris:
           nonce: 0
           balance: 0
           storage: {}
-        <eoa:0x0000000000000000000000000000000000e49701>:
+        0000000000000000000000000000000000e49701:
           balance: 10
-        <eoa:0x0000000000000000000000000000000000e49702>:
+        0000000000000000000000000000000000e49702:
           balance: 10
 
     - indexes:
@@ -107,9 +107,9 @@ doubleSelfdestructTouch_Paris:
           nonce: 0
           balance: 0
           storage: {}
-        <eoa:0x0000000000000000000000000000000000e49701>:
+        0000000000000000000000000000000000e49701:
           balance: 10
-        <eoa:0x0000000000000000000000000000000000e49702>:
+        0000000000000000000000000000000000e49702:
           nonce: 0
           balance: 11  # Received via SELFDESTRUCT
 
@@ -126,10 +126,10 @@ doubleSelfdestructTouch_Paris:
           nonce: 0
           balance: 0
           storage: {}
-        <eoa:0x0000000000000000000000000000000000e49701>:
+        0000000000000000000000000000000000e49701:
           nonce: 0
           balance: 11  # Received via SELFDESTRUCT
-        <eoa:0x0000000000000000000000000000000000e49702>:
+        0000000000000000000000000000000000e49702:
           nonce: 0
           balance: 11  # Received via SELFDESTRUCT
 
