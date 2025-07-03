@@ -38,18 +38,7 @@
         "same_as": "EELSMaster"
     },
     "Osaka": {
-        "same_as": "EELSMaster"
-    },
-    "BPO1": {
-        "same_as": "EELSMaster"
-    },
-    "BPO2": {
-        "same_as": "EELSMaster"
-    },
-    "BPO3": {
-        "same_as": "EELSMaster"
-    },
-    "BPO4": {
-        "same_as": "EELSMaster"
+        "git_url": "https://github.com/nerolation/execution-specs.git",
+        "branch": "bals"
     }
 }

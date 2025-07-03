@@ -1665,3 +1665,12 @@ class EOFv1(Prague, solc_name="cancun"):
         development.
         """
         return False
+
+
+class BlockAccessLists(Prague):
+    """A development fork for Block Access Lists."""
+
+    @classmethod
+    def header_withdrawals_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+        """Withdrawals are required starting from Shanghai."""
+        return True
