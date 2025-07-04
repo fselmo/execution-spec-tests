@@ -2,22 +2,12 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Dict, Generic, Set, TypeVar
+from typing import Any, ClassVar, Dict, Generic, TypeVar
 
 from pydantic import BaseModel, model_validator
 
 from ethereum_test_base_types import Address, Hash
 from ethereum_test_types import EOA
-
-
-class TagDependentData(ABC):
-    """Data for resolving tags."""
-
-    @abstractmethod
-    def dependencies(self) -> Set[str]:
-        """Get dependencies."""
-        pass
-
 
 TagDict = Dict[str, Address | EOA]
 
@@ -28,7 +18,7 @@ class Tag(BaseModel, Generic[T]):
     """Tag."""
 
     name: str
-    type: ClassVar[str]
+    type: ClassVar[str] = ""
     regex_pattern: ClassVar[re.Pattern] = re.compile(r"<\w+:(\w+)(:0x.+)?>")
 
     def __hash__(self) -> int:
@@ -46,11 +36,6 @@ class Tag(BaseModel, Generic[T]):
         return data
 
     @classmethod
-    def contained_tags(cls, value: str) -> Set[str]:
-        """Check if the value contains tags."""
-        return {m.group(1) for m in cls.regex_pattern.finditer(value)}
-
-    @classmethod
     def replace_tags(cls, input_str: str, tags: TagDict) -> str:
         """Replace tags in the value as addresses."""
         for tag in cls.contained_tags(input_str):
@@ -62,6 +47,15 @@ class Tag(BaseModel, Generic[T]):
     def resolve(self, tags: TagDict) -> T:
         """Resolve the tag."""
         raise NotImplementedError("Subclasses must implement this method")
+
+
+class TagDependentData(ABC):
+    """Data for resolving tags."""
+
+    @abstractmethod
+    def tag_dependencies(self) -> Dict[str, Tag]:
+        """Get tag dependencies."""
+        pass
 
 
 class AddressTag(Tag[Address]):

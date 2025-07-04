@@ -1,6 +1,6 @@
 """Account structure of ethereum/tests fillers."""
 
-from typing import Any, Dict, Set
+from typing import Any, Dict
 
 from pydantic import BaseModel
 
@@ -17,15 +17,15 @@ class StorageInPre(EthereumTestRootModel):
 
     root: Dict[ValueInFiller, ValueOrTagInFiller]
 
-    def dependencies(self) -> Set[str]:
-        """Get dependencies."""
-        dependencies = set()
+    def tag_dependencies(self) -> Dict[str, Tag]:
+        """Get tag dependencies."""
+        tag_dependencies = {}
         for k, v in self.root.items():
             if isinstance(k, Tag):
-                dependencies.add(k.name)
+                tag_dependencies[k.name] = k
             if isinstance(v, Tag):
-                dependencies.add(v.name)
-        return dependencies
+                tag_dependencies[v.name] = v
+        return tag_dependencies
 
     def resolve(self, tags: TagDict) -> Dict[ValueInFiller, ValueInFiller]:
         """Resolve the storage."""
@@ -41,10 +41,10 @@ class StorageInPre(EthereumTestRootModel):
 class AccountInFiller(BaseModel, TagDependentData):
     """Class that represents an account in filler."""
 
-    balance: ValueInFiller
-    code: CodeInFiller
-    nonce: ValueInFiller
-    storage: StorageInPre
+    balance: ValueInFiller | None = None
+    code: CodeInFiller | None = None
+    nonce: ValueInFiller | None = None
+    storage: StorageInPre | None = None
 
     class Config:
         """Model Config."""
@@ -52,25 +52,29 @@ class AccountInFiller(BaseModel, TagDependentData):
         extra = "forbid"
         arbitrary_types_allowed = True  # For CodeInFiller
 
-    def dependencies(self) -> Set[str]:
-        """Get dependencies."""
-        dependencies = set()
-        dependencies.update(self.storage.dependencies())
-        if isinstance(self.code, CodeInFiller):
-            dependencies.update(self.code.dependencies())
-        return dependencies
+    def tag_dependencies(self) -> Dict[str, Tag]:
+        """Get tag dependencies."""
+        tag_dependencies = {}
+        if self.storage is not None:
+            tag_dependencies.update(self.storage.tag_dependencies())
+        if self.code is not None and isinstance(self.code, CodeInFiller):
+            tag_dependencies.update(self.code.tag_dependencies())
+        return tag_dependencies
 
     def resolve(self, tags: TagDict) -> Dict[str, Any]:
         """Resolve the account."""
         account_properties = {}
-        if self.balance > 0:
+        if self.balance is not None:
             account_properties["balance"] = self.balance
-        if compiled_code := self.code.compiled(tags):
-            account_properties["code"] = compiled_code
-        if self.nonce > 0:
-            account_properties["nonce"] = self.nonce
-        if resolved_storage := self.storage.resolve(tags):
-            account_properties["storage"] = resolved_storage
+        if self.code is not None:
+            if compiled_code := self.code.compiled(tags):
+                account_properties["code"] = compiled_code
+        if self.nonce is not None:
+            if self.nonce > 0:
+                account_properties["nonce"] = self.nonce
+        if self.storage is not None:
+            if resolved_storage := self.storage.resolve(tags):
+                account_properties["storage"] = resolved_storage
         return account_properties
 
 
@@ -79,21 +83,21 @@ class PreInFiller(EthereumTestRootModel):
 
     root: Dict[AddressOrTagInFiller, AccountInFiller]
 
-    def setup(self, pre: Alloc) -> TagDict:
+    def setup(self, pre: Alloc, all_dependencies: Dict[str, Tag]) -> TagDict:
         """Resolve the pre-state."""
         max_tries = len(self.root)
 
-        unresolved_accounts = dict(self.root)
+        unresolved_accounts_in_pre = dict(self.root)
         resolved_accounts: TagDict = {}
 
         while max_tries > 0:
             # Naive approach to resolve accounts
-            unresolved_accounts_keys = list(unresolved_accounts.keys())
+            unresolved_accounts_keys = list(unresolved_accounts_in_pre.keys())
             for address_or_tag in unresolved_accounts_keys:
-                account = unresolved_accounts[address_or_tag]
-                dependencies = account.dependencies()
-                # check if all dependencies are resolved
-                if all(dependency in resolved_accounts for dependency in dependencies):
+                account = unresolved_accounts_in_pre[address_or_tag]
+                tag_dependencies = account.tag_dependencies()
+                # check if all tag dependencies are resolved
+                if all(dependency in resolved_accounts for dependency in tag_dependencies):
                     account_properties = account.resolve(resolved_accounts)
                     if isinstance(address_or_tag, Tag):
                         if isinstance(address_or_tag, ContractTag):
@@ -110,10 +114,16 @@ class PreInFiller(EthereumTestRootModel):
                             raise ValueError(f"Unknown tag type: {address_or_tag}")
                     else:
                         raise ValueError(f"Unknown tag type: {address_or_tag}")
-                    del unresolved_accounts[address_or_tag]
+                    del unresolved_accounts_in_pre[address_or_tag]
 
             max_tries -= 1
-        assert len(unresolved_accounts) == 0, (
-            f"Unresolved accounts: {unresolved_accounts}, probably a circular dependency"
+        assert len(unresolved_accounts_in_pre) == 0, (
+            f"Unresolved accounts: {unresolved_accounts_in_pre}, probably a circular dependency"
         )
+        for extra_dependency in all_dependencies:
+            if extra_dependency not in resolved_accounts:
+                if all_dependencies[extra_dependency].type != "eoa":
+                    raise ValueError(f"Contract dependency {extra_dependency} not found in pre")
+                # Assume the extra EOA is an empty account
+                resolved_accounts[extra_dependency] = pre.fund_eoa(amount=0)
         return resolved_accounts

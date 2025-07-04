@@ -1,28 +1,21 @@
 """Ethereum General State Test filler static test spec parser."""
 
-from typing import Callable, ClassVar, Dict, List, Tuple
+from typing import Callable, ClassVar, Dict, List
 
 import pytest
 from _pytest.mark.structures import ParameterSet
 
 from ethereum_test_base_types import Address
-from ethereum_test_exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_forks import Fork
-from ethereum_test_types import EOA, Alloc, Transaction
+from ethereum_test_types import EOA, Alloc
 from ethereum_test_types import Alloc as BaseAlloc
 
 from ..base_static import BaseStaticTest
 from ..state import StateTestFiller
-from .common.common import TagDict
-from .expect_section import (
-    ResultInFiller,
-)
 from .state_test_filler import (
     StateTestInFiller,
     StateTestVector,
 )
-
-CONTRACT_ADDRESS_INCREMENTS_DEFAULT = 0x100
 
 
 class StateStaticTest(StateTestInFiller, BaseStaticTest):
@@ -73,21 +66,18 @@ class StateStaticTest(StateTestInFiller, BaseStaticTest):
                 if expect.has_index(d, g, v):
                     if fork.name() in expect.network:
                         test_id = request.node.nodeid
-                        tags = self.pre.setup(pre)
+                        tx_tag_dependencies = self.transaction.tag_dependencies()
+                        result_tag_dependencies = expect.result.tag_dependencies()
+                        all_dependencies = {**tx_tag_dependencies, **result_tag_dependencies}
+                        tags = self.pre.setup(pre, all_dependencies)
                         env = self.env.get_environment(tags)
-                        # Now create the vector with populated caches
-                        post, tx = self._make_vector(
-                            tags,
-                            d,
-                            g,
-                            v,
-                            expect.result,
-                            test_id,
-                            fork,
-                            exception=None
+                        exception = (
+                            None
                             if expect.expect_exception is None
-                            else expect.expect_exception[fork.name()],
+                            else expect.expect_exception[fork.name()]
                         )
+                        tx = self.transaction.get_transaction(tags, d, g, v, exception)
+                        post = expect.result.resolve(tags)
                         return state_test(
                             env=env,
                             pre=pre,
@@ -111,19 +101,3 @@ class StateStaticTest(StateTestInFiller, BaseStaticTest):
                 if fork not in fork_list:
                     fork_list.append(fork)
         return fork_list
-
-    def _make_vector(
-        self,
-        tags: TagDict,
-        d: int,
-        g: int,
-        v: int,
-        expect_result: ResultInFiller,
-        test_id: str,
-        fork: Fork,
-        exception: TransactionExceptionInstanceOrList | None,
-    ) -> Tuple[Alloc, Transaction]:
-        """Compose test vector from test data."""
-        tx: Transaction = self.transaction.get_transaction(tags, d, g, v, exception)
-        post = expect_result.resolve(tags)
-        return post, tx

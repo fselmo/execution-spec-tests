@@ -1,6 +1,6 @@
 """General transaction structure of ethereum/tests fillers."""
 
-from typing import Any, List
+from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -15,10 +15,10 @@ from .common import (
     HashOrTagInFiller,
     ValueInFiller,
 )
-from .common.tags import Tag, TagDict
+from .common.tags import Tag, TagDependentData, TagDict
 
 
-class DataWithAccessList(CamelModel):
+class DataWithAccessList(CamelModel, TagDependentData):
     """Class that represents data with access list."""
 
     data: CodeInFiller
@@ -36,6 +36,16 @@ class DataWithAccessList(CamelModel):
                 ]
         return access_list
 
+    def tag_dependencies(self) -> Dict[str, Tag]:
+        """Get tag dependencies."""
+        tag_dependencies = {}
+        if self.access_list is not None:
+            for entry in self.access_list:
+                tag_dependencies.update(entry.tag_dependencies())
+        if self.data is not None and isinstance(self.data, CodeInFiller):
+            tag_dependencies.update(self.data.tag_dependencies())
+        return tag_dependencies
+
     @model_validator(mode="wrap")
     @classmethod
     def wrap_data_only(cls, data: Any, handler) -> "DataWithAccessList":
@@ -45,7 +55,7 @@ class DataWithAccessList(CamelModel):
         return handler(data)
 
 
-class GeneralTransactionInFiller(BaseModel):
+class GeneralTransactionInFiller(BaseModel, TagDependentData):
     """Class that represents general transaction in filler."""
 
     data: List[DataWithAccessList]
@@ -66,6 +76,18 @@ class GeneralTransactionInFiller(BaseModel):
         """Model Config."""
 
         extra = "forbid"
+
+    def tag_dependencies(self) -> Dict[str, Tag]:
+        """Get tag dependencies."""
+        tag_dependencies = {}
+        if self.data:
+            for data in self.data:
+                tag_dependencies.update(data.tag_dependencies())
+        if self.to is not None and isinstance(self.to, Tag):
+            tag_dependencies[self.to.name] = self.to
+        if self.secret_key is not None and isinstance(self.secret_key, Tag):
+            tag_dependencies[self.secret_key.name] = self.secret_key
+        return tag_dependencies
 
     @field_validator("to", mode="before")
     def check_single_key(cls, to):  # noqa: N805

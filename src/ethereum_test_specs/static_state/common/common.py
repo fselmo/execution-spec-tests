@@ -3,7 +3,7 @@
 import re
 import subprocess
 import tempfile
-from typing import Any, Dict, List, Set, Union
+from typing import Any, Dict, List, Union
 
 from eth_abi import encode
 from eth_utils import function_signature_to_4byte_selector
@@ -76,7 +76,12 @@ class CodeInFiller(BaseModel, TagDependentData):
     def model_post_init(self, context):
         """Initialize StateStaticTest."""
         super().model_post_init(context)
-        self._dependencies = Tag.contained_tags(self.code_raw)
+        tag_dependencies = {}
+        for tag_type in {ContractTag, SenderTag}:
+            for m in tag_type.regex_pattern.finditer(self.code_raw):
+                new_tag = tag_type.model_validate(m.group(1))
+                tag_dependencies[new_tag.name] = new_tag
+        self._dependencies = tag_dependencies
 
     def compiled(self, tags: TagDict) -> bytes:
         """Compile the code from source to bytes."""
@@ -189,7 +194,7 @@ class CodeInFiller(BaseModel, TagDependentData):
         except ValueError as e:
             raise Exception(f'Error parsing compile code: "{raw_code}"') from e
 
-    def dependencies(self) -> Set[str]:
+    def tag_dependencies(self) -> Dict[str, Tag]:
         """Get tag dependencies."""
         return self._dependencies
 
@@ -293,11 +298,19 @@ ValueOrTagInFiller = ContractTag | SenderTag | ValueInFiller
 HashOrTagInFiller = SenderKeyTag | Hash
 
 
-class AccessListInFiller(CamelModel):
+class AccessListInFiller(CamelModel, TagDependentData):
     """Access List for transactions in fillers that can contain address tags."""
 
     address: AddressOrTagInFiller
     storage_keys: List[Hash] = Field(default_factory=list)
+
+    def tag_dependencies(self) -> Dict[str, Tag]:
+        """Get tag dependencies."""
+        if isinstance(self.address, Tag):
+            return {
+                self.address.name: self.address,
+            }
+        return {}
 
     def resolve(self, tags: TagDict) -> AccessList:
         """Resolve the access list."""

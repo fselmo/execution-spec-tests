@@ -3,7 +3,14 @@
 from enum import Enum
 from typing import Any, Dict, List, Literal, Union
 
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    ValidationInfo,
+    ValidatorFunctionWrapHandler,
+    field_validator,
+    model_validator,
+)
 
 from ethereum_test_base_types import Account, Address, CamelModel, EthereumTestRootModel, Storage
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
@@ -11,7 +18,7 @@ from ethereum_test_forks import get_forks
 from ethereum_test_types import Alloc
 
 from .common import AddressOrTagInFiller, CodeInFiller, ValueInFiller, ValueOrTagInFiller
-from .common.tags import Tag, TagDict
+from .common.tags import Tag, TagDependentData, TagDict
 
 
 class Indexes(BaseModel):
@@ -27,20 +34,35 @@ class Indexes(BaseModel):
         extra = "forbid"
 
 
-class AccountInExpectSection(BaseModel):
+class AccountInExpectSection(BaseModel, TagDependentData):
     """Class that represents an account in expect section filler."""
 
     balance: ValueInFiller | None = Field(None)
     code: CodeInFiller | None = Field(None)
     nonce: ValueInFiller | None = Field(None)
     storage: Dict[ValueOrTagInFiller, ValueOrTagInFiller | Literal["ANY"]] | None = Field(None)
-    expected_to_not_exist: str | int | None = Field(None, alias="shouldnotexist")
 
-    class Config:
-        """Model Config."""
+    @model_validator(mode="wrap")
+    @classmethod
+    def validate_fork_range_descriptor(cls, v: Any, handler: ValidatorFunctionWrapHandler):
+        """Validate the "shouldnotexist" field, which makes this validator return `None`."""
+        if isinstance(v, dict):
+            if "shouldnotexist" in v:
+                return None
+        return handler(v)
 
-        extra = "forbid"
-        arbitrary_types_allowed = True  # For CodeInFiller
+    def tag_dependencies(self) -> Dict[str, Tag]:
+        """Get tag dependencies."""
+        tag_dependencies = {}
+        if self.code is not None:
+            tag_dependencies.update(self.code.tag_dependencies())
+        if self.storage is not None:
+            for key, value in self.storage.items():
+                if isinstance(key, Tag):
+                    tag_dependencies[key.name] = key
+                if isinstance(value, Tag):
+                    tag_dependencies[value.name] = value
+        return tag_dependencies
 
 
 class CMP(Enum):
@@ -105,10 +127,29 @@ def parse_networks(fork_with_operand: str) -> List[str]:
     return parsed_forks
 
 
-class ResultInFiller(EthereumTestRootModel):
-    """Post section in state test filler."""
+class ResultInFiller(EthereumTestRootModel, TagDependentData):
+    """
+    Post section in state test filler.
 
-    root: Dict[AddressOrTagInFiller, AccountInExpectSection]
+    A value of `None` for an address means that the account should not be in the state trie
+    at the end of the test.
+    """
+
+    root: Dict[AddressOrTagInFiller, AccountInExpectSection | None]
+
+    def tag_dependencies(self) -> Dict[str, Tag]:
+        """Return all tags used in the result."""
+        tag_dependencies: Dict[str, Tag] = {}
+        for address, account in self.root.items():
+            if isinstance(address, Tag):
+                tag_dependencies[address.name] = address
+
+            if account is None:
+                continue
+
+            tag_dependencies.update(account.tag_dependencies())
+
+        return tag_dependencies
 
     def resolve(self, tags: TagDict) -> Alloc:
         """Resolve the post section."""
@@ -119,8 +160,7 @@ class ResultInFiller(EthereumTestRootModel):
             else:
                 address = Address(address)
 
-            if account.expected_to_not_exist is not None:
-                post[address] = Account.NONEXISTENT
+            if account is None:
                 continue
 
             account_kwargs: Dict[str, Any] = {}
