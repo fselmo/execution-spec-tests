@@ -59,8 +59,8 @@ def parse_args_from_string_into_array(stream: str, pos: int, delim: str = " "):
 class CodeInFiller(BaseModel, TagDependentData):
     """Not compiled code source in test filler."""
 
-    code_label: str | None
-    code_raw: str
+    label: str | None
+    source: str
     _dependencies: Dict[str, Tag] = PrivateAttr(default_factory=dict)
 
     @model_validator(mode="before")
@@ -79,7 +79,7 @@ class CodeInFiller(BaseModel, TagDependentData):
                     label = code[label_index + len(label_marker) + 1 :]
                 else:
                     label = code[label_index + len(label_marker) + 1 : space_index]
-            return {"code_label": label, "code_raw": code}
+            return {"label": label, "source": code}
         return code
 
     def model_post_init(self, context):
@@ -87,14 +87,14 @@ class CodeInFiller(BaseModel, TagDependentData):
         super().model_post_init(context)
         tag_dependencies = {}
         for tag_type in {ContractTag, SenderTag}:
-            for m in tag_type.regex_pattern.finditer(self.code_raw):
+            for m in tag_type.regex_pattern.finditer(self.source):
                 new_tag = tag_type.model_validate(m.group(0))
                 tag_dependencies[new_tag.name] = new_tag
         self._dependencies = tag_dependencies
 
     def compiled(self, tags: TagDict) -> bytes:
         """Compile the code from source to bytes."""
-        raw_code = self.code_raw
+        raw_code = self.source
         if isinstance(raw_code, int):
             # Users pass code as int (very bad)
             hex_str = format(raw_code, "02x")

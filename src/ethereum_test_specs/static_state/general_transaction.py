@@ -1,10 +1,10 @@
 """General transaction structure of ethereum/tests fillers."""
 
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from ethereum_test_base_types import Address, CamelModel, Hash
+from ethereum_test_base_types import Address, CamelModel, EthereumTestRootModel, Hash
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_types import Transaction
 
@@ -55,10 +55,61 @@ class DataWithAccessList(CamelModel, TagDependentData):
         return handler(data)
 
 
+class LabeledDataIndex(BaseModel):
+    """Represents an index with a label if any."""
+
+    index: int
+    label: str | None = None
+
+    def __str__(self):
+        """Transform into a string that can be part of a test name."""
+        if self.label is not None:
+            return self.label
+        return f"{self.index}"
+
+
+class LabeledDataList(EthereumTestRootModel):
+    """Class that represents a list of labeled data."""
+
+    root: List[DataWithAccessList]
+
+    def __getitem__(self, label_or_index: int | str):
+        """Get an item by label or index."""
+        if isinstance(label_or_index, int):
+            return self.root[label_or_index]
+        if isinstance(label_or_index, str):
+            for item in self.root:
+                if item.data.label == label_or_index:
+                    return item
+        raise KeyError(f"Label/index {label_or_index} not found in data indexes")
+
+    def __contains__(self, label_or_index: int | str):
+        """Return True if the LabeledDataList contains the given label/index."""
+        if isinstance(label_or_index, int):
+            return label_or_index < len(self.root)
+        if isinstance(label_or_index, str):
+            for item in self.root:
+                if item.data.label == label_or_index:
+                    return True
+        return False
+
+    def __len__(self):
+        """Return the length of the list."""
+        return len(self.root)
+
+    def __iter__(self) -> Iterator[LabeledDataIndex]:
+        """Return the iterator of the root list."""
+        for i, item in enumerate(self.root):
+            labeled_data_index = LabeledDataIndex(index=i)
+            if item.data.label is not None:
+                labeled_data_index.label = item.data.label
+            yield labeled_data_index
+
+
 class GeneralTransactionInFiller(BaseModel, TagDependentData):
     """Class that represents general transaction in filler."""
 
-    data: List[DataWithAccessList]
+    data: LabeledDataList
     gas_limit: List[ValueInFiller] = Field(..., alias="gasLimit")
     gas_price: ValueInFiller | None = Field(None, alias="gasPrice")
     nonce: ValueInFiller | None
@@ -81,7 +132,8 @@ class GeneralTransactionInFiller(BaseModel, TagDependentData):
         """Get tag dependencies."""
         tag_dependencies = {}
         if self.data:
-            for data in self.data:
+            for idx in self.data:
+                data = self.data[idx.index]
                 tag_dependencies.update(data.tag_dependencies())
         if self.to is not None and isinstance(self.to, Tag):
             tag_dependencies[self.to.name] = self.to

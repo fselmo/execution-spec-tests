@@ -45,12 +45,12 @@ class StateTestInFiller(BaseModel):
                 # Parse labels in data
                 indexes = indexes.replace(":label ", "")
                 tx_matches: List[int] = []
-                for idx, d in enumerate(self.transaction.data):
-                    if indexes == d.data.code_label:
-                        tx_matches.append(idx)
+                for idx in self.transaction.data:
+                    if indexes == idx.label:
+                        tx_matches.append(idx.index)
                 return tx_matches
             else:
-                # Prase ranges in data
+                # Parse ranges in data
                 start, end = map(int, indexes.lstrip().split("-"))
                 return list(range(start, end + 1))
 
@@ -58,7 +58,7 @@ class StateTestInFiller(BaseModel):
             indexes: Union[int, str, list[Union[int, str]], list[str], list[int]],
             do_hint: bool = False,
         ) -> List[int] | int:
-            """Prase indexes and replace all ranges and labels into tx indexes."""
+            """Parse indexes and replace all ranges and labels into tx indexes."""
             result: List[int] | int = []
 
             if do_hint:
@@ -90,11 +90,6 @@ class StateTestInFiller(BaseModel):
         return self
 
 
-def serialize_fork(value: Fork):
-    """Pydantic serialize FORK."""
-    return value.name()
-
-
 class StateTestVector(BaseModel):
     """A data from .json test filler that is required for a state test vector."""
 
@@ -105,10 +100,3 @@ class StateTestVector(BaseModel):
     tx_exception: str | None
     post: Alloc
     fork: Fork
-
-    class Config:
-        """Serialize config."""
-
-        json_encoders = {
-            Fork: serialize_fork,
-        }

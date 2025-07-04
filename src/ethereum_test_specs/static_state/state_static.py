@@ -37,19 +37,27 @@ class StateStaticTest(StateTestInFiller, BaseStaticTest):
     def fill_function(self) -> Callable:
         """Return a StateTest spec from a static file."""
         d_g_v_parameters: List[ParameterSet] = []
-        for d in range(len(self.transaction.data)):
+        for d in self.transaction.data:
             for g in range(len(self.transaction.gas_limit)):
                 for v in range(len(self.transaction.value)):
                     exception_test = False
                     for expect in self.expect:
-                        if expect.has_index(d, g, v) and expect.expect_exception is not None:
+                        if expect.has_index(d.index, g, v) and expect.expect_exception is not None:
                             exception_test = True
                     # TODO: This does not take into account exceptions that only happen on
                     #       specific forks, but this requires a covariant parametrize
                     marks = [pytest.mark.exception_test] if exception_test else []
-                    d_g_v_parameters.append(
-                        pytest.param(d, g, v, marks=marks, id=f"d{d}-g{g}-v{v}")
-                    )
+                    id_label = ""
+                    if len(self.transaction.data) > 1 or d.label is not None:
+                        if d.label is not None:
+                            id_label = f"{d}"
+                        else:
+                            id_label = f"d{d}"
+                    if len(self.transaction.gas_limit) > 1:
+                        id_label += f"-g{g}"
+                    if len(self.transaction.value) > 1:
+                        id_label += f"-v{v}"
+                    d_g_v_parameters.append(pytest.param(d.index, g, v, marks=marks, id=id_label))
 
         @pytest.mark.valid_at(*self.get_valid_at_forks())
         @pytest.mark.parametrize("d,g,v", d_g_v_parameters)
