@@ -25,9 +25,15 @@ from ethereum_test_exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_forks import get_forks
 from ethereum_test_types import Alloc
 
-from .common import CodeInFiller, ValueInFiller, ValueOrCreateTagInFiller
-from .common.common import AddressOrCreateTagInFiller
-from .common.tags import Tag, TagDependentData, TagDict
+from .common import (
+    AddressOrCreateTagInFiller,
+    CodeInFiller,
+    Tag,
+    TagDependentData,
+    TagDict,
+    ValueInFiller,
+    ValueOrCreateTagInFiller,
+)
 
 
 class Indexes(BaseModel):

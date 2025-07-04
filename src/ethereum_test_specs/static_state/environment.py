@@ -7,8 +7,7 @@ from pydantic import BaseModel, Field, model_validator
 from ethereum_test_base_types import Address
 from ethereum_test_types import Environment
 
-from .common import AddressOrTagInFiller, ValueInFiller
-from .common.tags import Tag, TagDict
+from .common import AddressOrTagInFiller, Tag, TagDict, ValueInFiller
 
 
 class EnvironmentInStateTestFiller(BaseModel):

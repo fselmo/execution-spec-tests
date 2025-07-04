@@ -7,9 +7,17 @@ from pydantic import BaseModel
 from ethereum_test_base_types import EthereumTestRootModel, HexNumber
 from ethereum_test_types import Alloc
 
-from .common import CodeInFiller, ValueInFiller, ValueOrTagInFiller
-from .common.common import AddressOrTagInFiller
-from .common.tags import ContractTag, SenderTag, Tag, TagDependentData, TagDict
+from .common import (
+    AddressOrTagInFiller,
+    CodeInFiller,
+    ContractTag,
+    SenderTag,
+    Tag,
+    TagDependentData,
+    TagDict,
+    ValueInFiller,
+    ValueOrTagInFiller,
+)
 
 
 class StorageInPre(EthereumTestRootModel):

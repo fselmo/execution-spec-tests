@@ -13,9 +13,11 @@ from .common import (
     AddressOrTagInFiller,
     CodeInFiller,
     HashOrTagInFiller,
+    Tag,
+    TagDependentData,
+    TagDict,
     ValueInFiller,
 )
-from .common.tags import Tag, TagDependentData, TagDict
 
 
 class DataWithAccessList(CamelModel, TagDependentData):
