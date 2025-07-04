@@ -4,7 +4,9 @@ from typing import Any, List
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from ethereum_test_base_types import Hash
+from ethereum_test_base_types import Address, Hash, HexNumber
+from ethereum_test_exceptions import TransactionExceptionInstanceOrList
+from ethereum_test_types import EOA, Transaction
 
 from .common import (
     AccessListInFiller,
@@ -14,6 +16,7 @@ from .common import (
     Hash32OrTagInFiller,
     ValueInFiller,
 )
+from .common.tags import Tag, TagDict
 
 
 class DataWithAccessList(BaseModel):
@@ -53,7 +56,7 @@ class GeneralTransactionInFiller(BaseModel):
     data: List[DataWithAccessList]
     gas_limit: List[ValueInFiller] = Field(..., alias="gasLimit")
     gas_price: ValueInFiller | None = Field(None, alias="gasPrice")
-    nonce: ValueInFiller
+    nonce: ValueInFiller | None
     to: AddressOrTagInFiller | None
     value: List[ValueInFiller]
     secret_key: Hash32OrTagInFiller = Field(..., alias="secretKey")
@@ -86,3 +89,52 @@ class GeneralTransactionInFiller(BaseModel):
                     " `maxFeePerGas` and `maxPriorityFeePerGas` must be set!"
                 )
         return self
+
+    def get_transaction(
+        self,
+        tags: TagDict,
+        d: int,
+        g: int,
+        v: int,
+        exception: TransactionExceptionInstanceOrList | None,
+    ) -> Transaction:
+        """Get the transaction."""
+        data_box = self.data[d]
+        kwargs = {}
+        if self.to is None:
+            kwargs["to"] = None
+        elif isinstance(self.to, Tag):
+            kwargs["to"] = self.to.resolve_address(tags)
+        else:
+            kwargs["to"] = Address(self.to)
+
+        kwargs["data"] = data_box.data.compiled(tags)
+        if data_box.access_list is not None:
+            kwargs["access_list"] = [entry.resolve(tags) for entry in data_box.access_list]
+
+        kwargs["gas_limit"] = self.gas_limit[g]
+
+        if isinstance(self.secret_key, Tag):
+            kwargs["sender"] = tags[self.secret_key.name]
+        else:
+            kwargs["secret_key"] = self.secret_key
+
+        if self.value[v] > 0:
+            kwargs["value"] = self.value[v]
+        if self.gas_price is not None:
+            kwargs["gas_price"] = self.gas_price
+        if self.nonce is not None:
+            kwargs["nonce"] = self.nonce
+        if self.max_fee_per_gas is not None:
+            kwargs["max_fee_per_gas"] = self.max_fee_per_gas
+        if self.max_priority_fee_per_gas is not None:
+            kwargs["max_priority_fee_per_gas"] = self.max_priority_fee_per_gas
+        if self.max_fee_per_blob_gas is not None:
+            kwargs["max_fee_per_blob_gas"] = self.max_fee_per_blob_gas
+        if self.blob_versioned_hashes is not None:
+            kwargs["blob_versioned_hashes"] = self.blob_versioned_hashes
+
+        if exception is not None:
+            kwargs["error"] = exception
+
+        return Transaction(**kwargs)

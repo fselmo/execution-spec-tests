@@ -1,15 +1,17 @@
 """Expect section structure of ethereum/tests fillers."""
 
 from enum import Enum
-from typing import Dict, List, Literal, Union
+from typing import Any, Dict, List, Literal, Union
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
-from ethereum_test_base_types import CamelModel
+from ethereum_test_base_types import Account, Address, CamelModel, EthereumTestRootModel, Storage
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_forks import get_forks
+from ethereum_test_types import Alloc
 
 from .common import AddressOrTagInFiller, CodeInFiller, ValueInFiller, ValueOrTagInFiller
+from .common.tags import Tag, TagDict
 
 
 class Indexes(BaseModel):
@@ -103,12 +105,54 @@ def parse_networks(fork_with_operand: str) -> List[str]:
     return parsed_forks
 
 
+class ResultInFiller(EthereumTestRootModel):
+    """Post section in state test filler."""
+
+    root: Dict[AddressOrTagInFiller, AccountInExpectSection]
+
+    def resolve(self, tags: TagDict) -> Alloc:
+        """Resolve the post section."""
+        post = Alloc()
+        for address, account in self.root.items():
+            if isinstance(address, Tag):
+                address = address.resolve_address(tags)
+            else:
+                address = Address(address)
+
+            if account.expected_to_not_exist is not None:
+                post[address] = Account.NONEXISTENT
+                continue
+
+            account_kwargs: Dict[str, Any] = {}
+            if account.storage is not None:
+                storage = Storage()
+                for key, value in account.storage.items():
+                    if isinstance(key, Tag):
+                        key = key.resolve_address(tags)
+                    if isinstance(value, Tag):
+                        value = value.resolve_address(tags)
+                    if value != "ANY":
+                        storage[key] = value
+                    else:
+                        storage.set_expect_any(key)
+                account_kwargs["storage"] = storage
+            if account.code is not None:
+                account_kwargs["code"] = account.code.compiled(tags)
+            if account.balance is not None:
+                account_kwargs["balance"] = account.balance
+            if account.nonce is not None:
+                account_kwargs["nonce"] = account.nonce
+
+            post[address] = Account(**account_kwargs)
+        return post
+
+
 class ExpectSectionInStateTestFiller(CamelModel):
     """Expect section in state test filler."""
 
     indexes: Indexes = Field(default_factory=Indexes)
     network: List[str]
-    result: Dict[AddressOrTagInFiller, AccountInExpectSection]
+    result: ResultInFiller
     expect_exception: Dict[str, TransactionExceptionInstanceOrList] | None = None
 
     class Config:
