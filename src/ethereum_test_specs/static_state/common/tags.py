@@ -35,15 +35,6 @@ class Tag(BaseModel, Generic[T]):
                 return {"name": name}
         return data
 
-    @classmethod
-    def replace_tags(cls, input_str: str, tags: TagDict) -> str:
-        """Replace tags in the value as addresses."""
-        for tag in cls.contained_tags(input_str):
-            if tag not in tags:
-                raise ValueError(f"Tag {tag} not found in tags")
-            input_str = re.sub(f"<\\w+:{tag}(:0x.+)?>", str(Address(tags[tag])), input_str)
-        return input_str
-
     def resolve(self, tags: TagDict) -> T:
         """Resolve the tag."""
         raise NotImplementedError("Subclasses must implement this method")

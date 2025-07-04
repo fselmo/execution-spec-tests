@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Union
 
 from eth_abi import encode
 from eth_utils import function_signature_to_4byte_selector
-from pydantic import BaseModel, BeforeValidator, Field, model_validator
+from pydantic import BaseModel, BeforeValidator, Field, PrivateAttr, model_validator
 from pydantic_core import core_schema
 from typing_extensions import Annotated
 
@@ -53,6 +53,7 @@ class CodeInFiller(BaseModel, TagDependentData):
 
     code_label: str | None
     code_raw: str
+    _dependencies: Dict[str, Tag] = PrivateAttr(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
@@ -79,7 +80,7 @@ class CodeInFiller(BaseModel, TagDependentData):
         tag_dependencies = {}
         for tag_type in {ContractTag, SenderTag}:
             for m in tag_type.regex_pattern.finditer(self.code_raw):
-                new_tag = tag_type.model_validate(m.group(1))
+                new_tag = tag_type.model_validate(m.group(0))
                 tag_dependencies[new_tag.name] = new_tag
         self._dependencies = tag_dependencies
 
@@ -98,7 +99,10 @@ class CodeInFiller(BaseModel, TagDependentData):
 
         compiled_code = ""
 
-        raw_code = Tag.replace_tags(raw_code, tags)
+        for tag in self._dependencies:
+            if tag not in tags:
+                raise ValueError(f"Tag {tag} not found in tags")
+            raw_code = re.sub(f"<\\w+:{tag}(:0x.+)?>", str(Address(tags[tag])), raw_code)
 
         raw_marker = ":raw 0x"
         raw_index = raw_code.find(raw_marker)
