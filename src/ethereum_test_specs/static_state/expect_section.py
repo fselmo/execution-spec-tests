@@ -115,7 +115,7 @@ class ResultInFiller(EthereumTestRootModel):
         post = Alloc()
         for address, account in self.root.items():
             if isinstance(address, Tag):
-                address = address.resolve_address(tags)
+                address = address.resolve(tags)
             else:
                 address = Address(address)
 
@@ -128,9 +128,9 @@ class ResultInFiller(EthereumTestRootModel):
                 storage = Storage()
                 for key, value in account.storage.items():
                     if isinstance(key, Tag):
-                        key = key.resolve_address(tags)
+                        key = key.resolve(tags)
                     if isinstance(value, Tag):
-                        value = value.resolve_address(tags)
+                        value = value.resolve(tags)
                     if value != "ANY":
                         storage[key] = value
                     else:

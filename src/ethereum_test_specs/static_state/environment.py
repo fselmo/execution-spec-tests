@@ -45,7 +45,7 @@ class EnvironmentInStateTestFiller(BaseModel):
             assert self.current_coinbase.name in tags, (
                 f"Tag {self.current_coinbase.name} to resolve coinbase not found in tags"
             )
-            kwargs["fee_recipient"] = self.current_coinbase.resolve_address(tags)
+            kwargs["fee_recipient"] = self.current_coinbase.resolve(tags)
         else:
             kwargs["fee_recipient"] = Address(self.current_coinbase)
         if self.current_difficulty is not None:

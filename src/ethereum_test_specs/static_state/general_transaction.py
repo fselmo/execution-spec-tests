@@ -103,7 +103,7 @@ class GeneralTransactionInFiller(BaseModel):
         if self.to is None:
             kwargs["to"] = None
         elif isinstance(self.to, Tag):
-            kwargs["to"] = self.to.resolve_address(tags)
+            kwargs["to"] = self.to.resolve(tags)
         else:
             kwargs["to"] = Address(self.to)
 
@@ -114,7 +114,7 @@ class GeneralTransactionInFiller(BaseModel):
         kwargs["gas_limit"] = self.gas_limit[g]
 
         if isinstance(self.secret_key, Tag):
-            kwargs["sender"] = tags[self.secret_key.name]
+            kwargs["sender"] = self.secret_key.resolve(tags)
         else:
             kwargs["secret_key"] = self.secret_key
 

@@ -2,11 +2,11 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Dict, Set
+from typing import Any, ClassVar, Dict, Generic, Set, TypeVar
 
 from pydantic import BaseModel, model_validator
 
-from ethereum_test_base_types import Address
+from ethereum_test_base_types import Address, Hash
 from ethereum_test_types import EOA
 
 
@@ -21,8 +21,10 @@ class TagDependentData(ABC):
 
 TagDict = Dict[str, Address | EOA]
 
+T = TypeVar("T", bound=Address | Hash)
 
-class Tag(BaseModel):
+
+class Tag(BaseModel, Generic[T]):
     """Tag."""
 
     name: str
@@ -57,13 +59,21 @@ class Tag(BaseModel):
             input_str = re.sub(f"<\\w+:{tag}(:0x.+)?>", str(Address(tags[tag])), input_str)
         return input_str
 
-    def resolve_address(self, tags: TagDict) -> Address:
+    def resolve(self, tags: TagDict) -> T:
+        """Resolve the tag."""
+        raise NotImplementedError("Subclasses must implement this method")
+
+
+class AddressTag(Tag[Address]):
+    """Address tag."""
+
+    def resolve(self, tags: TagDict) -> Address:
         """Resolve the tag."""
         assert self.name in tags, f"Tag {self.name} not found in tags"
         return Address(tags[self.name])
 
 
-class ContractTag(Tag):
+class ContractTag(AddressTag):
     """Contract tag."""
 
     type: ClassVar[str] = "contract"
@@ -71,15 +81,22 @@ class ContractTag(Tag):
     regex_pattern: ClassVar[re.Pattern] = re.compile(r"<contract:(\w+)(:0x.+)?>")
 
 
-class SenderTag(Tag):
+class SenderTag(AddressTag):
     """Sender tag."""
 
     type: ClassVar[str] = "eoa"
     regex_pattern: ClassVar[re.Pattern] = re.compile(r"<eoa:(\w+)(:0x.+)?>")
 
 
-class SenderKeyTag(Tag):
-    """Sender key tag."""
+class SenderKeyTag(Tag[EOA]):
+    """Sender eoa tag."""
 
     type: ClassVar[str] = "eoa"
     regex_pattern: ClassVar[re.Pattern] = re.compile(r"<eoa:(\w+)(:0x.+)?>")
+
+    def resolve(self, tags: TagDict) -> EOA:
+        """Resolve the tag."""
+        assert self.name in tags, f"Tag {self.name} not found in tags"
+        eoa = tags[self.name]
+        assert isinstance(eoa, EOA), f"Tag {self.name} is not an EOA"
+        return eoa

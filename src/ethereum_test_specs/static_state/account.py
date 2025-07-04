@@ -32,7 +32,7 @@ class StorageInPre(EthereumTestRootModel):
         resolved_storage = {}
         for key, value in self.root.items():
             if isinstance(value, Tag):
-                resolved_storage[key] = int.from_bytes(value.resolve_address(tags), "big")
+                resolved_storage[key] = int.from_bytes(value.resolve(tags), "big")
             else:
                 resolved_storage[key] = value
         return resolved_storage
