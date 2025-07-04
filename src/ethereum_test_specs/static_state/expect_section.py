@@ -70,7 +70,7 @@ class StorageInExpectSection(EthereumTestRootModel, TagDependentData):
             if value is None:
                 storage.set_expect_any(key)
             elif isinstance(value, Tag):
-                value = value.resolve(tags)
+                storage[key] = value.resolve(tags)
             else:
                 storage[key] = value
         return storage
@@ -207,14 +207,14 @@ class ResultInFiller(EthereumTestRootModel, TagDependentData):
         post = Alloc()
         for address, account in self.root.items():
             if isinstance(address, Tag):
-                address = address.resolve(tags)
+                resolved_address = address.resolve(tags)
             else:
-                address = Address(address)
+                resolved_address = Address(address)
 
             if account is None:
                 continue
 
-            post[address] = account.resolve(tags)
+            post[resolved_address] = account.resolve(tags)
         return post
 
 

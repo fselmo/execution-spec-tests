@@ -23,7 +23,7 @@ class Tag(BaseModel, Generic[T]):
 
     def __hash__(self) -> int:
         """Hash based on original string for use as dict key."""
-        return hash(f"{self.type}:{self.name}")
+        return hash(f"{self.__class__.__name__}:{self.name}")
 
     @model_validator(mode="before")
     @classmethod
