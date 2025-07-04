@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, model_validator
 from ethereum_test_forks import Fork
 from ethereum_test_types import Alloc, Environment, Transaction
 
-from .account import PreFiller
+from .account import PreInFiller
 from .environment import EnvironmentInStateTestFiller
 from .expect_section import ExpectSectionInStateTestFiller
 from .general_transaction import GeneralTransactionInFiller
@@ -25,7 +25,7 @@ class StateTestInFiller(BaseModel):
 
     info: Info | None = Field(None, alias="_info")
     env: EnvironmentInStateTestFiller
-    pre: PreFiller
+    pre: PreInFiller
     transaction: GeneralTransactionInFiller
     expect: List[ExpectSectionInStateTestFiller]
     solidity: str | None = Field(None)

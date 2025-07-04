@@ -73,7 +73,7 @@ class StateStaticTest(StateTestInFiller, BaseStaticTest):
                 if expect.has_index(d, g, v):
                     if fork.name() in expect.network:
                         test_id = request.node.nodeid
-                        tags = self.pre.resolve(pre)
+                        tags = self.pre.setup(pre)
                         env = self.env.get_environment(tags)
                         # Now create the vector with populated caches
                         post, tx = self._make_vector(

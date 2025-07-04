@@ -11,7 +11,7 @@ from pydantic import BaseModel, BeforeValidator, Field, model_validator
 from pydantic_core import core_schema
 from typing_extensions import Annotated
 
-from ethereum_test_base_types import AccessList, Address, Hash, HexNumber
+from ethereum_test_base_types import AccessList, Address, CamelModel, Hash, HexNumber
 
 from .compile_yul import compile_yul
 from .tags import ContractTag, SenderKeyTag, SenderTag, Tag, TagDependentData, TagDict
@@ -293,24 +293,18 @@ ValueOrTagInFiller = ContractTag | SenderTag | ValueInFiller
 HashOrTagInFiller = SenderKeyTag | Hash
 
 
-class AccessListInFiller(BaseModel):
+class AccessListInFiller(CamelModel):
     """Access List for transactions in fillers that can contain address tags."""
 
-    address: ContractTag | SenderTag | Address
-    storage_keys: List[Hash] = Field([], alias="storageKeys")
-
-    class Config:
-        """Model config."""
-
-        populate_by_name = True
+    address: AddressOrTagInFiller
+    storage_keys: List[Hash] = Field(default_factory=list)
 
     def resolve(self, tags: TagDict) -> AccessList:
         """Resolve the access list."""
         kwargs: Dict[str, Address | List[Hash]] = {}
         if isinstance(self.address, Tag):
-            kwargs["address"] = Address(tags[self.address.name])
+            kwargs["address"] = self.address.resolve(tags)
         else:
             kwargs["address"] = self.address
-        if self.storage_keys:
-            kwargs["storage_keys"] = [Hash(key, left_padding=True) for key in self.storage_keys]
+        kwargs["storageKeys"] = [Hash(key, left_padding=True) for key in self.storage_keys]
         return AccessList(**kwargs)

@@ -4,7 +4,7 @@ from typing import Any, List
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from ethereum_test_base_types import Address, Hash
+from ethereum_test_base_types import Address, CamelModel, Hash
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_types import Transaction
 
@@ -18,21 +18,17 @@ from .common import (
 from .common.tags import Tag, TagDict
 
 
-class DataWithAccessList(BaseModel):
+class DataWithAccessList(CamelModel):
     """Class that represents data with access list."""
 
     data: CodeInFiller
-    access_list: List[AccessListInFiller] | None = Field(None, alias="accessList")
-
-    class Config:
-        """Model Config."""
-
-        extra = "forbid"
-        arbitrary_types_allowed = True  # For CodeInFiller
+    access_list: List[AccessListInFiller] | None = None
 
     @field_validator("access_list", mode="before")
     def convert_keys_to_hash(cls, access_list):  # noqa: N805
         """Fix keys."""
+        if access_list is None:
+            return None
         for entry in access_list:
             if "storageKeys" in entry:
                 entry["storageKeys"] = [

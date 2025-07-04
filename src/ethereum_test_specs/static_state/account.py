@@ -74,12 +74,12 @@ class AccountInFiller(BaseModel, TagDependentData):
         return account_properties
 
 
-class PreFiller(EthereumTestRootModel):
+class PreInFiller(EthereumTestRootModel):
     """Class that represents a pre-state in filler."""
 
     root: Dict[AddressOrTagInFiller, AccountInFiller]
 
-    def resolve(self, pre: Alloc) -> TagDict:
+    def setup(self, pre: Alloc) -> TagDict:
         """Resolve the pre-state."""
         max_tries = len(self.root)
 
