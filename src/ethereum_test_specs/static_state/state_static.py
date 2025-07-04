@@ -1,9 +1,10 @@
 """Ethereum General State Test filler static test spec parser."""
 
-from typing import Callable, ClassVar, Dict, List
+from typing import Callable, ClassVar, Dict, List, Self, Union
 
 import pytest
 from _pytest.mark.structures import ParameterSet
+from pydantic import BaseModel, Field, model_validator
 
 from ethereum_test_base_types import Address
 from ethereum_test_forks import Fork
@@ -12,27 +13,98 @@ from ethereum_test_types import Alloc as BaseAlloc
 
 from ..base_static import BaseStaticTest
 from ..state import StateTestFiller
-from .state_test_filler import (
-    StateTestInFiller,
-    StateTestVector,
-)
+from .account import PreInFiller
+from .environment import EnvironmentInStateTestFiller
+from .expect_section import ExpectSectionInStateTestFiller
+from .general_transaction import GeneralTransactionInFiller
 
 
-class StateStaticTest(StateTestInFiller, BaseStaticTest):
+class Info(BaseModel):
+    """Class that represents an info filler."""
+
+    comment: str | None = Field(None)
+    pytest_marks: List[str] = Field(default_factory=list)
+
+
+class StateStaticTest(BaseStaticTest):
     """General State Test static filler from ethereum/tests."""
 
     test_name: str = ""
-    vectors: List[StateTestVector] | None = None
     format_name: ClassVar[str] = "state_test"
+
+    info: Info | None = Field(None, alias="_info")
+    env: EnvironmentInStateTestFiller
+    pre: PreInFiller
+    transaction: GeneralTransactionInFiller
+    expect: List[ExpectSectionInStateTestFiller]
 
     _alloc_registry: Dict[str, BaseAlloc] = {}
     _tag_to_address_map: Dict[str, Dict[str, Address]] = {}
     _tag_to_eoa_map: Dict[str, Dict[str, EOA]] = {}
     _request: pytest.FixtureRequest | None = None
 
+    class Config:
+        """Model Config."""
+
+        extra = "forbid"
+
     def model_post_init(self, context):
         """Initialize StateStaticTest."""
         super().model_post_init(context)
+
+    @model_validator(mode="after")
+    def match_labels(self) -> Self:
+        """Replace labels in expect section with corresponding tx.d indexes."""
+
+        def parse_string_indexes(indexes: str) -> List[int]:
+            """Parse index that are string in to list of int."""
+            if ":label" in indexes:
+                # Parse labels in data
+                indexes = indexes.replace(":label ", "")
+                tx_matches: List[int] = []
+                for idx in self.transaction.data:
+                    if indexes == idx.label:
+                        tx_matches.append(idx.index)
+                return tx_matches
+            else:
+                # Parse ranges in data
+                start, end = map(int, indexes.lstrip().split("-"))
+                return list(range(start, end + 1))
+
+        def parse_indexes(
+            indexes: Union[int, str, list[Union[int, str]], list[str], list[int]],
+            do_hint: bool = False,
+        ) -> List[int] | int:
+            """Parse indexes and replace all ranges and labels into tx indexes."""
+            result: List[int] | int = []
+
+            if do_hint:
+                print("Before: " + str(indexes))
+
+            if isinstance(indexes, int):
+                result = indexes
+            if isinstance(indexes, str):
+                result = parse_string_indexes(indexes)
+            if isinstance(indexes, list):
+                result = []
+                for element in indexes:
+                    parsed = parse_indexes(element)
+                    if isinstance(parsed, int):
+                        result.append(parsed)
+                    else:
+                        result.extend(parsed)
+                result = list(set(result))
+
+            if do_hint:
+                print("After: " + str(result))
+            return result
+
+        for expect_section in self.expect:
+            expect_section.indexes.data = parse_indexes(expect_section.indexes.data)
+            expect_section.indexes.gas = parse_indexes(expect_section.indexes.gas)
+            expect_section.indexes.value = parse_indexes(expect_section.indexes.value)
+
+        return self
 
     def fill_function(self) -> Callable:
         """Return a StateTest spec from a static file."""
@@ -68,12 +140,10 @@ class StateStaticTest(StateTestInFiller, BaseStaticTest):
             d: int,
             g: int,
             v: int,
-            request: pytest.FixtureRequest,
         ):
             for expect in self.expect:
                 if expect.has_index(d, g, v):
                     if fork.name() in expect.network:
-                        test_id = request.node.nodeid
                         tx_tag_dependencies = self.transaction.tag_dependencies()
                         result_tag_dependencies = expect.result.tag_dependencies()
                         all_dependencies = {**tx_tag_dependencies, **result_tag_dependencies}

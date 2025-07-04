@@ -3,7 +3,7 @@
 import re
 import subprocess
 import tempfile
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Mapping, Union
 
 from eth_abi import encode
 from eth_utils import function_signature_to_4byte_selector
@@ -206,7 +206,7 @@ class CodeInFiller(BaseModel, TagDependentData):
         except ValueError as e:
             raise Exception(f'Error parsing compile code: "{raw_code}"') from e
 
-    def tag_dependencies(self) -> Dict[str, Tag]:
+    def tag_dependencies(self) -> Mapping[str, Tag]:
         """Get tag dependencies."""
         return self._dependencies
 
@@ -318,7 +318,7 @@ class AccessListInFiller(CamelModel, TagDependentData):
     address: AddressOrTagInFiller
     storage_keys: List[Hash] = Field(default_factory=list)
 
-    def tag_dependencies(self) -> Dict[str, Tag]:
+    def tag_dependencies(self) -> Mapping[str, Tag]:
         """Get tag dependencies."""
         if isinstance(self.address, Tag):
             return {

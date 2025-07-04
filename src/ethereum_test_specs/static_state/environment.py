@@ -1,5 +1,7 @@
 """Environment structure of ethereum/tests fillers."""
 
+from typing import Any, Dict
+
 from pydantic import BaseModel, Field, model_validator
 
 from ethereum_test_base_types import Address
@@ -40,7 +42,7 @@ class EnvironmentInStateTestFiller(BaseModel):
 
     def get_environment(self, tags: TagDict) -> Environment:
         """Get the environment."""
-        kwargs = {}
+        kwargs: Dict[str, Any] = {}
         if isinstance(self.current_coinbase, Tag):
             assert self.current_coinbase.name in tags, (
                 f"Tag {self.current_coinbase.name} to resolve coinbase not found in tags"

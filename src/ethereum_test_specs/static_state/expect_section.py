@@ -1,7 +1,7 @@
 """Expect section structure of ethereum/tests fillers."""
 
 from enum import Enum
-from typing import Annotated, Any, Dict, List, Union
+from typing import Annotated, Any, Dict, List, Mapping, Union
 
 from pydantic import (
     BaseModel,
@@ -13,7 +13,14 @@ from pydantic import (
     model_validator,
 )
 
-from ethereum_test_base_types import Account, Address, CamelModel, EthereumTestRootModel, Storage
+from ethereum_test_base_types import (
+    Account,
+    Address,
+    CamelModel,
+    EthereumTestRootModel,
+    HexNumber,
+    Storage,
+)
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_forks import get_forks
 from ethereum_test_types import Alloc
@@ -29,11 +36,6 @@ class Indexes(BaseModel):
     data: int | List[Union[int, str]] | List[int] | str = Field(-1)
     gas: int | List[Union[int, str]] | List[int] | str = Field(-1)
     value: int | List[Union[int, str]] | List[int] | str = Field(-1)
-
-    class Config:
-        """Model Config."""
-
-        extra = "forbid"
 
 
 def validate_any_string_as_none(v: Any) -> Any:
@@ -51,7 +53,7 @@ class StorageInExpectSection(EthereumTestRootModel, TagDependentData):
         Annotated[ValueOrCreateTagInFiller | None, BeforeValidator(validate_any_string_as_none)],
     ]
 
-    def tag_dependencies(self) -> Dict[str, Tag]:
+    def tag_dependencies(self) -> Mapping[str, Tag]:
         """Get storage dependencies."""
         tag_dependencies = {}
         for key, value in self.root.items():
@@ -65,14 +67,17 @@ class StorageInExpectSection(EthereumTestRootModel, TagDependentData):
         """Resolve the account with the given tags."""
         storage = Storage()
         for key, value in self.root.items():
+            resolved_key: HexNumber | Address
             if isinstance(key, Tag):
-                key = key.resolve(tags)
-            if value is None:
-                storage.set_expect_any(key)
-            elif isinstance(value, Tag):
-                storage[key] = value.resolve(tags)
+                resolved_key = key.resolve(tags)
             else:
-                storage[key] = value
+                resolved_key = key
+            if value is None:
+                storage.set_expect_any(resolved_key)
+            elif isinstance(value, Tag):
+                storage[resolved_key] = value.resolve(tags)
+            else:
+                storage[resolved_key] = value
         return storage
 
 
@@ -93,9 +98,9 @@ class AccountInExpectSection(BaseModel, TagDependentData):
                 return None
         return handler(v)
 
-    def tag_dependencies(self) -> Dict[str, Tag]:
+    def tag_dependencies(self) -> Mapping[str, Tag]:
         """Get tag dependencies."""
-        tag_dependencies = {}
+        tag_dependencies: Dict[str, Tag] = {}
         if self.code is not None:
             tag_dependencies.update(self.code.tag_dependencies())
         if self.storage is not None:
@@ -188,7 +193,7 @@ class ResultInFiller(EthereumTestRootModel, TagDependentData):
 
     root: Dict[AddressOrCreateTagInFiller, AccountInExpectSection | None]
 
-    def tag_dependencies(self) -> Dict[str, Tag]:
+    def tag_dependencies(self) -> Mapping[str, Tag]:
         """Return all tags used in the result."""
         tag_dependencies: Dict[str, Tag] = {}
         for address, account in self.root.items():
@@ -225,11 +230,6 @@ class ExpectSectionInStateTestFiller(CamelModel):
     network: List[str]
     result: ResultInFiller
     expect_exception: Dict[str, TransactionExceptionInstanceOrList] | None = None
-
-    class Config:
-        """Model Config."""
-
-        extra = "forbid"
 
     @field_validator("network", mode="before")
     @classmethod

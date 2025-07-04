@@ -1,6 +1,6 @@
 """General transaction structure of ethereum/tests fillers."""
 
-from typing import Any, Dict, Iterator, List
+from typing import Any, Dict, Generator, List, Mapping
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -36,9 +36,9 @@ class DataWithAccessList(CamelModel, TagDependentData):
                 ]
         return access_list
 
-    def tag_dependencies(self) -> Dict[str, Tag]:
+    def tag_dependencies(self) -> Mapping[str, Tag]:
         """Get tag dependencies."""
-        tag_dependencies = {}
+        tag_dependencies: Dict[str, Tag] = {}
         if self.access_list is not None:
             for entry in self.access_list:
                 tag_dependencies.update(entry.tag_dependencies())
@@ -97,7 +97,7 @@ class LabeledDataList(EthereumTestRootModel):
         """Return the length of the list."""
         return len(self.root)
 
-    def __iter__(self) -> Iterator[LabeledDataIndex]:
+    def __iter__(self) -> Generator[LabeledDataIndex, None, None]:  # type: ignore
         """Return the iterator of the root list."""
         for i, item in enumerate(self.root):
             labeled_data_index = LabeledDataIndex(index=i)
@@ -128,7 +128,7 @@ class GeneralTransactionInFiller(BaseModel, TagDependentData):
 
         extra = "forbid"
 
-    def tag_dependencies(self) -> Dict[str, Tag]:
+    def tag_dependencies(self) -> Mapping[str, Tag]:
         """Get tag dependencies."""
         tag_dependencies = {}
         if self.data:
@@ -169,7 +169,7 @@ class GeneralTransactionInFiller(BaseModel, TagDependentData):
     ) -> Transaction:
         """Get the transaction."""
         data_box = self.data[d]
-        kwargs = {}
+        kwargs: Dict[str, Any] = {}
         if self.to is None:
             kwargs["to"] = None
         elif isinstance(self.to, Tag):

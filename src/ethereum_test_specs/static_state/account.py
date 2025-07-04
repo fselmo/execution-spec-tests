@@ -1,10 +1,10 @@
 """Account structure of ethereum/tests fillers."""
 
-from typing import Any, Dict
+from typing import Any, Dict, Mapping
 
 from pydantic import BaseModel
 
-from ethereum_test_base_types import EthereumTestRootModel
+from ethereum_test_base_types import EthereumTestRootModel, HexNumber
 from ethereum_test_types import Alloc
 
 from .common import CodeInFiller, ValueInFiller, ValueOrTagInFiller
@@ -17,9 +17,9 @@ class StorageInPre(EthereumTestRootModel):
 
     root: Dict[ValueInFiller, ValueOrTagInFiller]
 
-    def tag_dependencies(self) -> Dict[str, Tag]:
+    def tag_dependencies(self) -> Mapping[str, Tag]:
         """Get tag dependencies."""
-        tag_dependencies = {}
+        tag_dependencies: Dict[str, Tag] = {}
         for k, v in self.root.items():
             if isinstance(k, Tag):
                 tag_dependencies[k.name] = k
@@ -29,10 +29,10 @@ class StorageInPre(EthereumTestRootModel):
 
     def resolve(self, tags: TagDict) -> Dict[ValueInFiller, ValueInFiller]:
         """Resolve the storage."""
-        resolved_storage = {}
+        resolved_storage: Dict[ValueInFiller, ValueInFiller] = {}
         for key, value in self.root.items():
             if isinstance(value, Tag):
-                resolved_storage[key] = int.from_bytes(value.resolve(tags), "big")
+                resolved_storage[key] = HexNumber(int.from_bytes(value.resolve(tags), "big"))
             else:
                 resolved_storage[key] = value
         return resolved_storage
@@ -52,9 +52,9 @@ class AccountInFiller(BaseModel, TagDependentData):
         extra = "forbid"
         arbitrary_types_allowed = True  # For CodeInFiller
 
-    def tag_dependencies(self) -> Dict[str, Tag]:
+    def tag_dependencies(self) -> Mapping[str, Tag]:
         """Get tag dependencies."""
-        tag_dependencies = {}
+        tag_dependencies: Dict[str, Tag] = {}
         if self.storage is not None:
             tag_dependencies.update(self.storage.tag_dependencies())
         if self.code is not None and isinstance(self.code, CodeInFiller):
@@ -63,7 +63,7 @@ class AccountInFiller(BaseModel, TagDependentData):
 
     def resolve(self, tags: TagDict) -> Dict[str, Any]:
         """Resolve the account."""
-        account_properties = {}
+        account_properties: Dict[str, Any] = {}
         if self.balance is not None:
             account_properties["balance"] = self.balance
         if self.code is not None:

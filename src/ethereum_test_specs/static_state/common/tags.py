@@ -2,7 +2,7 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Dict, Generic, TypeVar
+from typing import Any, ClassVar, Dict, Generic, Mapping, TypeVar
 
 from pydantic import BaseModel, model_validator
 
@@ -44,7 +44,7 @@ class TagDependentData(ABC):
     """Data for resolving tags."""
 
     @abstractmethod
-    def tag_dependencies(self) -> Dict[str, Tag]:
+    def tag_dependencies(self) -> Mapping[str, Tag]:
         """Get tag dependencies."""
         pass
 
