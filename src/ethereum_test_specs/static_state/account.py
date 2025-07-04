@@ -102,13 +102,15 @@ class PreInFiller(EthereumTestRootModel):
                     if isinstance(address_or_tag, Tag):
                         if isinstance(address_or_tag, ContractTag):
                             resolved_accounts[address_or_tag.name] = pre.deploy_contract(
-                                **account_properties
+                                **account_properties,
+                                label=address_or_tag.name,
                             )
                         elif isinstance(address_or_tag, SenderTag):
                             if "balance" in account_properties:
                                 account_properties["amount"] = account_properties.pop("balance")
                             resolved_accounts[address_or_tag.name] = pre.fund_eoa(
-                                **account_properties
+                                **account_properties,
+                                label=address_or_tag.name,
                             )
                         else:
                             raise ValueError(f"Unknown tag type: {address_or_tag}")
@@ -125,5 +127,7 @@ class PreInFiller(EthereumTestRootModel):
                 if all_dependencies[extra_dependency].type != "eoa":
                     raise ValueError(f"Contract dependency {extra_dependency} not found in pre")
                 # Assume the extra EOA is an empty account
-                resolved_accounts[extra_dependency] = pre.fund_eoa(amount=0)
+                resolved_accounts[extra_dependency] = pre.fund_eoa(
+                    amount=0, label=extra_dependency
+                )
         return resolved_accounts

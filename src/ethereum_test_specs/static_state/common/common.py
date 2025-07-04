@@ -14,7 +14,15 @@ from typing_extensions import Annotated
 from ethereum_test_base_types import AccessList, Address, CamelModel, Hash, HexNumber
 
 from .compile_yul import compile_yul
-from .tags import ContractTag, SenderKeyTag, SenderTag, Tag, TagDependentData, TagDict
+from .tags import (
+    ContractTag,
+    CreateTag,
+    SenderKeyTag,
+    SenderTag,
+    Tag,
+    TagDependentData,
+    TagDict,
+)
 
 
 def parse_hex_number(i: str | int) -> int:
@@ -297,8 +305,10 @@ def parse_address_or_tag_for_access_list(value: Any) -> Union[Address, str]:
 
 AddressInFiller = Annotated[Address, BeforeValidator(lambda a: Address(a, left_padding=True))]
 AddressOrTagInFiller = ContractTag | SenderTag | Address
+AddressOrCreateTagInFiller = ContractTag | SenderTag | CreateTag | Address
 ValueInFiller = Annotated[HexNumber, BeforeValidator(parse_hex_number)]
 ValueOrTagInFiller = ContractTag | SenderTag | ValueInFiller
+ValueOrCreateTagInFiller = ContractTag | SenderTag | CreateTag | ValueInFiller
 HashOrTagInFiller = SenderKeyTag | Hash
 
 

@@ -1,10 +1,11 @@
 """Expect section structure of ethereum/tests fillers."""
 
 from enum import Enum
-from typing import Any, Dict, List, Literal, Union
+from typing import Annotated, Any, Dict, List, Union
 
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     Field,
     ValidationInfo,
     ValidatorFunctionWrapHandler,
@@ -17,7 +18,8 @@ from ethereum_test_exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_forks import get_forks
 from ethereum_test_types import Alloc
 
-from .common import AddressOrTagInFiller, CodeInFiller, ValueInFiller, ValueOrTagInFiller
+from .common import CodeInFiller, ValueInFiller, ValueOrCreateTagInFiller
+from .common.common import AddressOrCreateTagInFiller
 from .common.tags import Tag, TagDependentData, TagDict
 
 
@@ -34,17 +36,57 @@ class Indexes(BaseModel):
         extra = "forbid"
 
 
+def validate_any_string_as_none(v: Any) -> Any:
+    """Validate "ANY" as None."""
+    if type(v) is str and v == "ANY":
+        return None
+    return v
+
+
+class StorageInExpectSection(EthereumTestRootModel, TagDependentData):
+    """Class that represents a storage in expect section filler."""
+
+    root: Dict[
+        ValueOrCreateTagInFiller,
+        Annotated[ValueOrCreateTagInFiller | None, BeforeValidator(validate_any_string_as_none)],
+    ]
+
+    def tag_dependencies(self) -> Dict[str, Tag]:
+        """Get storage dependencies."""
+        tag_dependencies = {}
+        for key, value in self.root.items():
+            if isinstance(key, Tag):
+                tag_dependencies[key.name] = key
+            if isinstance(value, Tag):
+                tag_dependencies[value.name] = value
+        return tag_dependencies
+
+    def resolve(self, tags: TagDict) -> Storage:
+        """Resolve the account with the given tags."""
+        storage = Storage()
+        for key, value in self.root.items():
+            if isinstance(key, Tag):
+                key = key.resolve(tags)
+            if value is None:
+                storage.set_expect_any(key)
+            elif isinstance(value, Tag):
+                value = value.resolve(tags)
+            else:
+                storage[key] = value
+        return storage
+
+
 class AccountInExpectSection(BaseModel, TagDependentData):
     """Class that represents an account in expect section filler."""
 
-    balance: ValueInFiller | None = Field(None)
-    code: CodeInFiller | None = Field(None)
-    nonce: ValueInFiller | None = Field(None)
-    storage: Dict[ValueOrTagInFiller, ValueOrTagInFiller | Literal["ANY"]] | None = Field(None)
+    balance: ValueInFiller | None = None
+    code: CodeInFiller | None = None
+    nonce: ValueInFiller | None = None
+    storage: StorageInExpectSection | None = None
 
     @model_validator(mode="wrap")
     @classmethod
-    def validate_fork_range_descriptor(cls, v: Any, handler: ValidatorFunctionWrapHandler):
+    def validate_should_not_exist(cls, v: Any, handler: ValidatorFunctionWrapHandler):
         """Validate the "shouldnotexist" field, which makes this validator return `None`."""
         if isinstance(v, dict):
             if "shouldnotexist" in v:
@@ -57,12 +99,21 @@ class AccountInExpectSection(BaseModel, TagDependentData):
         if self.code is not None:
             tag_dependencies.update(self.code.tag_dependencies())
         if self.storage is not None:
-            for key, value in self.storage.items():
-                if isinstance(key, Tag):
-                    tag_dependencies[key.name] = key
-                if isinstance(value, Tag):
-                    tag_dependencies[value.name] = value
+            tag_dependencies.update(self.storage.tag_dependencies())
         return tag_dependencies
+
+    def resolve(self, tags: TagDict) -> Account:
+        """Resolve the account with the given tags."""
+        account_kwargs: Dict[str, Any] = {}
+        if self.storage is not None:
+            account_kwargs["storage"] = self.storage.resolve(tags)
+        if self.code is not None:
+            account_kwargs["code"] = self.code.compiled(tags)
+        if self.balance is not None:
+            account_kwargs["balance"] = self.balance
+        if self.nonce is not None:
+            account_kwargs["nonce"] = self.nonce
+        return Account(**account_kwargs)
 
 
 class CMP(Enum):
@@ -135,7 +186,7 @@ class ResultInFiller(EthereumTestRootModel, TagDependentData):
     at the end of the test.
     """
 
-    root: Dict[AddressOrTagInFiller, AccountInExpectSection | None]
+    root: Dict[AddressOrCreateTagInFiller, AccountInExpectSection | None]
 
     def tag_dependencies(self) -> Dict[str, Tag]:
         """Return all tags used in the result."""
@@ -163,27 +214,7 @@ class ResultInFiller(EthereumTestRootModel, TagDependentData):
             if account is None:
                 continue
 
-            account_kwargs: Dict[str, Any] = {}
-            if account.storage is not None:
-                storage = Storage()
-                for key, value in account.storage.items():
-                    if isinstance(key, Tag):
-                        key = key.resolve(tags)
-                    if isinstance(value, Tag):
-                        value = value.resolve(tags)
-                    if value != "ANY":
-                        storage[key] = value
-                    else:
-                        storage.set_expect_any(key)
-                account_kwargs["storage"] = storage
-            if account.code is not None:
-                account_kwargs["code"] = account.code.compiled(tags)
-            if account.balance is not None:
-                account_kwargs["balance"] = account.balance
-            if account.nonce is not None:
-                account_kwargs["nonce"] = account.nonce
-
-            post[address] = Account(**account_kwargs)
+            post[address] = account.resolve(tags)
         return post
 
 

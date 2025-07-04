@@ -6,8 +6,8 @@ from typing import Any, ClassVar, Dict, Generic, TypeVar
 
 from pydantic import BaseModel, model_validator
 
-from ethereum_test_base_types import Address, Hash
-from ethereum_test_types import EOA
+from ethereum_test_base_types import Address, Bytes, Hash, HexNumber
+from ethereum_test_types import EOA, compute_create2_address, compute_create_address
 
 TagDict = Dict[str, Address | EOA]
 
@@ -62,8 +62,54 @@ class ContractTag(AddressTag):
     """Contract tag."""
 
     type: ClassVar[str] = "contract"
-    resolved_address: Address | None = None
     regex_pattern: ClassVar[re.Pattern] = re.compile(r"<contract:(\w+)(:0x.+)?>")
+
+
+class CreateTag(AddressTag):
+    """Contract derived from a another contract via CREATE."""
+
+    create_type: str
+    nonce: HexNumber | None = None
+    salt: HexNumber | None = None
+    initcode: Bytes | None = None
+
+    type: ClassVar[str] = "contract"
+    regex_pattern: ClassVar[re.Pattern] = re.compile(r"<(create|create2):(\w+):(\w+):?(\w+)?>")
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_from_string(cls, data: Any) -> Any:
+        """Validate the create tag from string: <create:name:nonce>."""
+        if isinstance(data, str):
+            if m := cls.regex_pattern.match(data):
+                create_type = m.group(1)
+                name = m.group(2)
+                kwargs = {
+                    "create_type": create_type,
+                    "name": name,
+                }
+                if create_type == "create":
+                    kwargs["nonce"] = m.group(3)
+                elif create_type == "create2":
+                    kwargs["salt"] = m.group(3)
+                    kwargs["initcode"] = m.group(4)
+                return kwargs
+        return data
+
+    def resolve(self, tags: TagDict) -> Address:
+        """Resolve the tag."""
+        assert self.name in tags, f"Tag {self.name} not found in tags"
+        if self.create_type == "create":
+            assert self.nonce is not None, "Nonce is required for create"
+            return compute_create_address(address=tags[self.name], nonce=self.nonce)
+        elif self.create_type == "create2":
+            assert self.salt is not None, "Salt is required for create2"
+            assert self.initcode is not None, "Init code is required for create2"
+            return compute_create2_address(
+                address=tags[self.name], salt=self.salt, initcode=self.initcode
+            )
+        else:
+            raise ValueError(f"Invalid create type: {self.create_type}")
 
 
 class SenderTag(AddressTag):
