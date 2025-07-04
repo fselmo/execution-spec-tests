@@ -7,8 +7,7 @@ from .common import (
     AddressTag,
     CodeInFiller,
     ContractTag,
-    Hash32InFiller,
-    Hash32OrTagInFiller,
+    HashOrTagInFiller,
     SenderTag,
     ValueInFiller,
     ValueOrTagInFiller,
@@ -25,7 +24,6 @@ __all__ = [
     "ValueInFiller",
     "ValueOrTagInFiller",
     "CodeInFiller",
-    "Hash32InFiller",
-    "Hash32OrTagInFiller",
+    "HashOrTagInFiller",
     "parse_address_or_tag",
 ]

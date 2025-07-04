@@ -4,11 +4,11 @@ from typing import Any, Dict, Set
 
 from pydantic import BaseModel
 
-from ethereum_test_base_types import Address, EthereumTestRootModel
-from ethereum_test_types import EOA, Alloc
+from ethereum_test_base_types import EthereumTestRootModel
+from ethereum_test_types import Alloc
 
 from .common import CodeInFiller, ValueInFiller, ValueOrTagInFiller
-from .common.common import AddressOrTagInFiller, CodeInFillerSource
+from .common.common import AddressOrTagInFiller
 from .common.tags import ContractTag, SenderTag, Tag, TagDependentData, TagDict
 
 
@@ -56,7 +56,7 @@ class AccountInFiller(BaseModel, TagDependentData):
         """Get dependencies."""
         dependencies = set()
         dependencies.update(self.storage.dependencies())
-        if isinstance(self.code, CodeInFillerSource):
+        if isinstance(self.code, CodeInFiller):
             dependencies.update(self.code.dependencies())
         return dependencies
 

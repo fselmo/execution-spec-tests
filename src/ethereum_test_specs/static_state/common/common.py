@@ -3,11 +3,11 @@
 import re
 import subprocess
 import tempfile
-from typing import Any, List, Set, Union
+from typing import Any, Dict, List, Set, Union
 
 from eth_abi import encode
 from eth_utils import function_signature_to_4byte_selector
-from pydantic import BaseModel, BeforeValidator, Field
+from pydantic import BaseModel, BeforeValidator, Field, model_validator
 from pydantic_core import core_schema
 from typing_extensions import Annotated
 
@@ -31,9 +31,6 @@ def parse_hex_number(i: str | int) -> int:
     return int(i, 10)
 
 
-HexNumber = Annotated[HexNumber, BeforeValidator(parse_hex_number)]
-
-
 def parse_args_from_string_into_array(stream: str, pos: int, delim: str = " "):
     """Parse YUL options into array."""
     args = []
@@ -51,16 +48,34 @@ def parse_args_from_string_into_array(stream: str, pos: int, delim: str = " "):
     return args, pos
 
 
-class CodeInFillerSource(TagDependentData):
+class CodeInFiller(BaseModel, TagDependentData):
     """Not compiled code source in test filler."""
 
     code_label: str | None
-    code_raw: Any
+    code_raw: str
 
-    def __init__(self, code: Any, label: str | None = None):
-        """Instantiate."""
-        self.code_label = label
-        self.code_raw = code
+    @model_validator(mode="before")
+    @classmethod
+    def validate_from_string(cls, code: Any) -> Any:
+        """Validate the sender tag from string: <eoa:name:0x...>."""
+        if isinstance(code, str):
+            label_marker = ":label"
+            label_index = code.find(label_marker)
+
+            # Parse :label into code options
+            label = None
+            if label_index != -1:
+                space_index = code.find(" ", label_index + len(label_marker) + 1)
+                if space_index == -1:
+                    label = code[label_index + len(label_marker) + 1 :]
+                else:
+                    label = code[label_index + len(label_marker) + 1 : space_index]
+            return {"code_label": label, "code_raw": code}
+        return code
+
+    def model_post_init(self, context):
+        """Initialize StateStaticTest."""
+        super().model_post_init(context)
         self._dependencies = Tag.contained_tags(self.code_raw)
 
     def compiled(self, tags: TagDict) -> bytes:
@@ -179,22 +194,6 @@ class CodeInFillerSource(TagDependentData):
         return self._dependencies
 
 
-def parse_code_label(code) -> CodeInFillerSource:
-    """Parse label from code."""
-    label_marker = ":label"
-    label_index = code.find(label_marker)
-
-    # Parse :label into code options
-    label = None
-    if label_index != -1:
-        space_index = code.find(" ", label_index + len(label_marker) + 1)
-        if space_index == -1:
-            label = code[label_index + len(label_marker) + 1 :]
-        else:
-            label = code[label_index + len(label_marker) + 1 : space_index]
-    return CodeInFillerSource(code, label)
-
-
 class AddressTag:
     """
     Represents an address tag like:
@@ -289,11 +288,9 @@ def parse_address_or_tag_for_access_list(value: Any) -> Union[Address, str]:
 
 AddressInFiller = Annotated[Address, BeforeValidator(lambda a: Address(a, left_padding=True))]
 AddressOrTagInFiller = ContractTag | SenderTag | Address
-ValueOrTagInFiller = ContractTag | SenderTag | HexNumber
-Hash32OrTagInFiller = SenderKeyTag | Hash
 ValueInFiller = Annotated[HexNumber, BeforeValidator(parse_hex_number)]
-CodeInFiller = Annotated[CodeInFillerSource, BeforeValidator(parse_code_label)]
-Hash32InFiller = Annotated[Hash, BeforeValidator(lambda h: Hash(h, left_padding=True))]
+ValueOrTagInFiller = ContractTag | SenderTag | ValueInFiller
+HashOrTagInFiller = SenderKeyTag | Hash
 
 
 class AccessListInFiller(BaseModel):
@@ -309,7 +306,7 @@ class AccessListInFiller(BaseModel):
 
     def resolve(self, tags: TagDict) -> AccessList:
         """Resolve the access list."""
-        kwargs = {}
+        kwargs: Dict[str, Address | List[Hash]] = {}
         if isinstance(self.address, Tag):
             kwargs["address"] = Address(tags[self.address.name])
         else:

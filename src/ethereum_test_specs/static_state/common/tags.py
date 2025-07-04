@@ -2,7 +2,7 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Dict, Literal, Set
+from typing import Any, ClassVar, Dict, Set
 
 from pydantic import BaseModel, model_validator
 
@@ -26,7 +26,7 @@ class Tag(BaseModel):
     """Tag."""
 
     name: str
-    type: Literal["contract", "eoa"]
+    type: ClassVar[str]
     regex_pattern: ClassVar[re.Pattern] = re.compile(r"<\w+:(\w+)(:0x.+)?>")
 
     def __hash__(self) -> int:
@@ -66,7 +66,7 @@ class Tag(BaseModel):
 class ContractTag(Tag):
     """Contract tag."""
 
-    type: Literal["contract"] = "contract"
+    type: ClassVar[str] = "contract"
     resolved_address: Address | None = None
     regex_pattern: ClassVar[re.Pattern] = re.compile(r"<contract:(\w+)(:0x.+)?>")
 
@@ -74,14 +74,12 @@ class ContractTag(Tag):
 class SenderTag(Tag):
     """Sender tag."""
 
-    type: Literal["eoa"] = "eoa"
-    resolved_sender: EOA | None = None
+    type: ClassVar[str] = "eoa"
     regex_pattern: ClassVar[re.Pattern] = re.compile(r"<eoa:(\w+)(:0x.+)?>")
 
 
 class SenderKeyTag(Tag):
     """Sender key tag."""
 
-    type: Literal["eoa"] = "eoa"
-    resolved_sender: EOA | None = None
+    type: ClassVar[str] = "eoa"
     regex_pattern: ClassVar[re.Pattern] = re.compile(r"<eoa:(\w+)(:0x.+)?>")

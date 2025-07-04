@@ -4,16 +4,15 @@ from typing import Any, List
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from ethereum_test_base_types import Address, Hash, HexNumber
+from ethereum_test_base_types import Address, Hash
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
-from ethereum_test_types import EOA, Transaction
+from ethereum_test_types import Transaction
 
 from .common import (
     AccessListInFiller,
     AddressOrTagInFiller,
     CodeInFiller,
-    Hash32InFiller,
-    Hash32OrTagInFiller,
+    HashOrTagInFiller,
     ValueInFiller,
 )
 from .common.tags import Tag, TagDict
@@ -59,13 +58,13 @@ class GeneralTransactionInFiller(BaseModel):
     nonce: ValueInFiller | None
     to: AddressOrTagInFiller | None
     value: List[ValueInFiller]
-    secret_key: Hash32OrTagInFiller = Field(..., alias="secretKey")
+    secret_key: HashOrTagInFiller = Field(..., alias="secretKey")
 
     max_fee_per_gas: ValueInFiller | None = Field(None, alias="maxFeePerGas")
     max_priority_fee_per_gas: ValueInFiller | None = Field(None, alias="maxPriorityFeePerGas")
 
     max_fee_per_blob_gas: ValueInFiller | None = Field(None, alias="maxFeePerBlobGas")
-    blob_versioned_hashes: List[Hash32InFiller] | None = Field(None, alias="blobVersionedHashes")
+    blob_versioned_hashes: List[Hash] | None = Field(None, alias="blobVersionedHashes")
 
     class Config:
         """Model Config."""
