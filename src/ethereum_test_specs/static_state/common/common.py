@@ -107,11 +107,6 @@ class CodeInFiller(BaseModel, TagDependentData):
 
         compiled_code = ""
 
-        for tag in self._dependencies:
-            if tag not in tags:
-                raise ValueError(f"Tag {tag} not found in tags")
-            raw_code = re.sub(f"<\\w+:{tag}(:0x.+)?>", str(Address(tags[tag])), raw_code)
-
         raw_marker = ":raw 0x"
         raw_index = raw_code.find(raw_marker)
         abi_marker = ":abi"
@@ -119,87 +114,103 @@ class CodeInFiller(BaseModel, TagDependentData):
         yul_marker = ":yul"
         yul_index = raw_code.find(yul_marker)
 
-        # Parse :raw
-        if raw_index != -1:
-            compiled_code = raw_code[raw_index + len(raw_marker) :]
+        def replace_tags(raw_code, keep_prefix: bool) -> str:
+            for tag in self._dependencies.values():
+                if tag.name not in tags:
+                    raise ValueError(f"Tag {tag} not found in tags")
+                substitution_address = f"{tag.resolve(tags)}"
+                if not keep_prefix and substitution_address.startswith("0x"):
+                    substitution_address = substitution_address[2:]
+                raw_code = re.sub(f"<\\w+:{tag.name}(:0x.+)?>", substitution_address, raw_code)
+            return raw_code
 
-        # Parse :yul
-        elif yul_index != -1:
-            option_start = yul_index + len(yul_marker)
-            options: list[str] = []
-            native_yul_options: str = ""
-
-            if raw_code[option_start:].lstrip().startswith("{"):
-                # No yul options, proceed to code parsing
-                source_start = option_start
-            else:
-                opt, source_start = parse_args_from_string_into_array(raw_code, option_start + 1)
-                for arg in opt:
-                    if arg == "object" or arg == '"C"':
-                        native_yul_options += arg + " "
-                    else:
-                        options.append(arg)
-
-            with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".yul") as tmp:
-                tmp.write(native_yul_options + raw_code[source_start:])
-                tmp_path = tmp.name
-            compiled_code = compile_yul(
-                source_file=tmp_path,
-                evm_version=options[0] if len(options) >= 1 else None,
-                optimize=options[1] if len(options) >= 2 else None,
-            )[2:]
-
-        # Parse :abi
-        elif abi_index != -1:
-            abi_encoding = raw_code[abi_index + len(abi_marker) + 1 :]
-            tokens = abi_encoding.strip().split()
-            abi = tokens[0]
-            function_signature = function_signature_to_4byte_selector(abi)
-            parameter_str = re.sub(r"^\w+", "", abi).strip()
-
-            parameter_types = parameter_str.strip("()").split(",")
-            if len(tokens) > 1:
-                function_parameters = encode(
-                    [parameter_str],
-                    [
-                        [
-                            int(t.lower(), 0) & ((1 << 256) - 1)  # treat big ints as 256bits
-                            if parameter_types[t_index] == "uint"
-                            else int(t.lower(), 0) > 0  # treat positive values as True
-                            if parameter_types[t_index] == "bool"
-                            else False and ValueError("unhandled parameter_types")
-                            for t_index, t in enumerate(tokens[1:])
-                        ]
-                    ],
-                )
-                return function_signature + function_parameters
-            return function_signature
-
-        # Parse plain code 0x
-        elif raw_code.lstrip().startswith("0x"):
-            compiled_code = raw_code[2:].lower()
-
-        # Parse lllc code
-        elif raw_code.lstrip().startswith("{") or raw_code.lstrip().startswith("(asm"):
-            with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmp:
-                tmp.write(raw_code)
-                tmp_path = tmp.name
-
-            # - using lllc
-            result = subprocess.run(["lllc", tmp_path], capture_output=True, text=True)
-
-            # - using docker:
-            #   If the running machine does not have lllc installed, we can use docker to run lllc,
-            #   but we need to start a container first, and the process is generally slower.
-            # from .docker import get_lllc_container_id
-            # result = subprocess.run(
-            #     ["docker", "exec", get_lllc_container_id(), "lllc", tmp_path[5:]],
-            #     capture_output=True,
-            #     text=True,
-            # )
-            compiled_code = "".join(result.stdout.splitlines())
+        # Parse :raw or 0x
+        if raw_index != -1 or raw_code.lstrip().startswith("0x"):
+            raw_code = replace_tags(raw_code, False)
+            # Parse :raw
+            if raw_index != -1:
+                compiled_code = raw_code[raw_index + len(raw_marker) :]
+            # Parse plain code 0x
+            elif raw_code.lstrip().startswith("0x"):
+                compiled_code = raw_code[2:].lower()
         else:
-            raise Exception(f'Error parsing code: "{raw_code}"')
+            raw_code = replace_tags(raw_code, True)
+            # Parse :yul
+            if yul_index != -1:
+                option_start = yul_index + len(yul_marker)
+                options: list[str] = []
+                native_yul_options: str = ""
+
+                if raw_code[option_start:].lstrip().startswith("{"):
+                    # No yul options, proceed to code parsing
+                    source_start = option_start
+                else:
+                    opt, source_start = parse_args_from_string_into_array(
+                        raw_code, option_start + 1
+                    )
+                    for arg in opt:
+                        if arg == "object" or arg == '"C"':
+                            native_yul_options += arg + " "
+                        else:
+                            options.append(arg)
+
+                with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".yul") as tmp:
+                    tmp.write(native_yul_options + raw_code[source_start:])
+                    tmp_path = tmp.name
+                compiled_code = compile_yul(
+                    source_file=tmp_path,
+                    evm_version=options[0] if len(options) >= 1 else None,
+                    optimize=options[1] if len(options) >= 2 else None,
+                )[2:]
+
+            # Parse :abi
+            elif abi_index != -1:
+                abi_encoding = raw_code[abi_index + len(abi_marker) + 1 :]
+                tokens = abi_encoding.strip().split()
+                abi = tokens[0]
+                function_signature = function_signature_to_4byte_selector(abi)
+                parameter_str = re.sub(r"^\w+", "", abi).strip()
+
+                parameter_types = parameter_str.strip("()").split(",")
+                if len(tokens) > 1:
+                    function_parameters = encode(
+                        [parameter_str],
+                        [
+                            [
+                                int(t.lower(), 0) & ((1 << 256) - 1)  # treat big ints as 256bits
+                                if parameter_types[t_index] == "uint"
+                                else int(t.lower(), 0) > 0  # treat positive values as True
+                                if parameter_types[t_index] == "bool"
+                                else False and ValueError("unhandled parameter_types")
+                                for t_index, t in enumerate(tokens[1:])
+                            ]
+                        ],
+                    )
+                    return function_signature + function_parameters
+                return function_signature
+
+            # Parse lllc code
+            elif raw_code.lstrip().startswith("{") or raw_code.lstrip().startswith("(asm"):
+                with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmp:
+                    tmp.write(raw_code)
+                    tmp_path = tmp.name
+
+                # - using lllc
+                result = subprocess.run(["lllc", tmp_path], capture_output=True, text=True)
+
+                # - using docker:
+                #   If the running machine does not have lllc installed, we can use docker to run lllc,
+                #   but we need to start a container first, and the process is generally slower.
+                # from .docker import get_lllc_container_id
+                # result = subprocess.run(
+                #     ["docker", "exec", get_lllc_container_id(), "lllc", tmp_path[5:]],
+                #     capture_output=True,
+                #     text=True,
+                # )
+                compiled_code = "".join(result.stdout.splitlines())
+
+            else:
+                raise Exception(f'Error parsing code: "{raw_code}"')
 
         try:
             return bytes.fromhex(compiled_code)
