@@ -78,7 +78,6 @@ class AccountInFiller(BaseModel, TagDependentData):
             if compiled_code := self.code.compiled(tags):
                 account_properties["code"] = compiled_code
         if self.nonce is not None:
-            if self.nonce > 0:
                 account_properties["nonce"] = self.nonce
         if self.storage is not None:
             if resolved_storage := self.storage.resolve(tags):
