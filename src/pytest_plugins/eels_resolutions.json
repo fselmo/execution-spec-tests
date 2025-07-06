@@ -38,7 +38,8 @@
         "same_as": "EELSMaster"
     },
     "Osaka": {
-        "git_url": "https://github.com/nerolation/execution-specs.git",
-        "branch": "bals"
+        "git_url": "https://github.com/spencer-tb/execution-specs.git",
+        "branch": "forks/osaka",
+        "commit": "99734284b89766883ecb680e57b07fbca47da51b"
     }
 }
