@@ -19,7 +19,7 @@ class Tag(BaseModel, Generic[T]):
 
     name: str
     type: ClassVar[str] = ""
-    regex_pattern: ClassVar[re.Pattern] = re.compile(r"<\w+:(\w+)(:0x.+)?>")
+    regex_pattern: ClassVar[re.Pattern] = re.compile(r"<\w+:(\w+)(:[^>]+)?")
 
     def __hash__(self) -> int:
         """Hash based on original string for use as dict key."""
@@ -28,7 +28,7 @@ class Tag(BaseModel, Generic[T]):
     @model_validator(mode="before")
     @classmethod
     def validate_from_string(cls, data: Any) -> Any:
-        """Validate the sender tag from string: <eoa:name:0x...>."""
+        """Validate the generic tag from string: <tag_kind:name:0x...>."""
         if isinstance(data, str):
             if m := cls.regex_pattern.match(data):
                 name = m.group(1)
