@@ -111,13 +111,6 @@ class CodeInFiller(BaseModel, TagDependentData):
 
         compiled_code = ""
 
-        raw_marker = ":raw 0x"
-        raw_index = raw_code.find(raw_marker)
-        abi_marker = ":abi"
-        abi_index = raw_code.find(abi_marker)
-        yul_marker = ":yul"
-        yul_index = raw_code.find(yul_marker)
-
         def replace_tags(raw_code, keep_prefix: bool) -> str:
             for tag in self._dependencies.values():
                 if tag.name not in tags:
@@ -131,6 +124,15 @@ class CodeInFiller(BaseModel, TagDependentData):
                 else:
                     raw_code = re.sub(f"<\\w+:{tag.name}(:0x.+)?>", substitution_address, raw_code)
             return raw_code
+
+        raw_marker = ":raw 0x"
+        raw_index = raw_code.find(raw_marker)
+        if raw_index == -1:
+            raw_index = replace_tags(raw_code, True).find(raw_marker)
+        abi_marker = ":abi"
+        abi_index = raw_code.find(abi_marker)
+        yul_marker = ":yul"
+        yul_index = raw_code.find(yul_marker)
 
         # Parse :raw or 0x
         if raw_index != -1 or raw_code.lstrip().startswith("0x"):
@@ -198,7 +200,11 @@ class CodeInFiller(BaseModel, TagDependentData):
                 return function_signature
 
             # Parse lllc code
-            elif raw_code.lstrip().startswith("{") or raw_code.lstrip().startswith("(asm"):
+            elif (
+                raw_code.lstrip().startswith("{")
+                or raw_code.lstrip().startswith("(asm")
+                or raw_code.lstrip().startswith(":raw 0x")
+            ):
                 with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmp:
                     tmp.write(raw_code)
                     tmp_path = tmp.name
