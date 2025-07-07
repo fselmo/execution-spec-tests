@@ -121,7 +121,11 @@ class CodeInFiller(BaseModel, TagDependentData):
                 substitution_address = f"{tag.resolve(tags)}"
                 if not keep_prefix and substitution_address.startswith("0x"):
                     substitution_address = substitution_address[2:]
-                raw_code = re.sub(f"<\\w+:{tag.name}(:0x.+)?>", substitution_address, raw_code)
+                # Use the original string if available, otherwise construct a pattern
+                if hasattr(tag, "original_string") and tag.original_string:
+                    raw_code = raw_code.replace(tag.original_string, substitution_address)
+                else:
+                    raw_code = re.sub(f"<\\w+:{tag.name}(:0x.+)?>", substitution_address, raw_code)
             return raw_code
 
         # Parse :raw or 0x
@@ -199,8 +203,9 @@ class CodeInFiller(BaseModel, TagDependentData):
                 result = subprocess.run(["lllc", tmp_path], capture_output=True, text=True)
 
                 # - using docker:
-                #   If the running machine does not have lllc installed, we can use docker to run lllc,
-                #   but we need to start a container first, and the process is generally slower.
+                #   If the running machine does not have lllc installed, we can use docker to
+                #   run lllc, but we need to start a container first, and the process is generally
+                #   slower.
                 # from .docker import get_lllc_container_id
                 # result = subprocess.run(
                 #     ["docker", "exec", get_lllc_container_id(), "lllc", tmp_path[5:]],
