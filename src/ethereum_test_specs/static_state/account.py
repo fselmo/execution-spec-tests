@@ -78,7 +78,7 @@ class AccountInFiller(BaseModel, TagDependentData):
             if compiled_code := self.code.compiled(tags):
                 account_properties["code"] = compiled_code
         if self.nonce is not None:
-                account_properties["nonce"] = self.nonce
+            account_properties["nonce"] = self.nonce
         if self.storage is not None:
             if resolved_storage := self.storage.resolve(tags):
                 account_properties["storage"] = resolved_storage
@@ -104,28 +104,85 @@ class PreInFiller(EthereumTestRootModel):
                 account = unresolved_accounts_in_pre[address_or_tag]
                 tag_dependencies = account.tag_dependencies()
                 # check if all tag dependencies are resolved
-                if all(dependency in resolved_accounts for dependency in tag_dependencies):
-                    account_properties = account.resolve(resolved_accounts)
+                # Special case: if this is a tag that only depends on itself, we need to handle it
+                if (
+                    isinstance(address_or_tag, Tag)
+                    and len(tag_dependencies) == 1
+                    and address_or_tag.name in tag_dependencies
+                ):
+                    # Self-referencing tag - we can resolve it
+                    dependencies_resolved = True
+                else:
+                    # Normal case: check if all dependencies are resolved
+                    dependencies_resolved = all(
+                        dependency in resolved_accounts for dependency in tag_dependencies
+                    )
+
+                if dependencies_resolved:
                     if isinstance(address_or_tag, Tag):
-                        if isinstance(address_or_tag, ContractTag):
-                            resolved_accounts[address_or_tag.name] = pre.deploy_contract(
-                                **account_properties,
+                        # For self-referencing tags, we need to deploy first with placeholder
+                        if (
+                            isinstance(address_or_tag, ContractTag)
+                            and len(tag_dependencies) == 1
+                            and address_or_tag.name in tag_dependencies
+                        ):
+                            # Deploy contract with empty code first to get address
+                            deployed_address = pre.deploy_contract(
+                                code=b"",  # Placeholder
                                 label=address_or_tag.name,
                             )
-                        elif isinstance(address_or_tag, SenderTag):
-                            if "balance" in account_properties:
-                                account_properties["amount"] = account_properties.pop("balance")
-                            resolved_accounts[address_or_tag.name] = pre.fund_eoa(
-                                **account_properties,
-                                label=address_or_tag.name,
-                            )
+                            resolved_accounts[address_or_tag.name] = deployed_address
+                            # Now resolve properties with the address available
+                            account_properties = account.resolve(resolved_accounts)
+
+                            deployed_account = pre[deployed_address]
+                            if deployed_account is not None:
+                                if "code" in account_properties:
+                                    deployed_account.code = account_properties["code"]
+                                if "balance" in account_properties:
+                                    deployed_account.balance = account_properties["balance"]
+                                if "nonce" in account_properties:
+                                    deployed_account.nonce = account_properties["nonce"]
+                                if "storage" in account_properties:
+                                    deployed_account.storage = account_properties["storage"]
                         else:
-                            raise ValueError(f"Unknown tag type: {address_or_tag}")
+                            # Normal tag resolution
+                            account_properties = account.resolve(resolved_accounts)
+                            if isinstance(address_or_tag, ContractTag):
+                                resolved_accounts[address_or_tag.name] = pre.deploy_contract(
+                                    **account_properties,
+                                    label=address_or_tag.name,
+                                )
+                            elif isinstance(address_or_tag, SenderTag):
+                                if "balance" in account_properties:
+                                    account_properties["amount"] = account_properties.pop(
+                                        "balance"
+                                    )
+                                resolved_accounts[address_or_tag.name] = pre.fund_eoa(
+                                    **account_properties,
+                                    label=address_or_tag.name,
+                                )
+                            else:
+                                raise ValueError(f"Unknown tag type: {address_or_tag}")
                     else:
-                        raise ValueError(f"Unknown tag type: {address_or_tag}")
+                        # For hard-coded addresses, we need to set up the account in pre
+                        account_properties = account.resolve(resolved_accounts)
+                        if "balance" in account_properties:
+                            pre.fund_address(address_or_tag, account_properties["balance"])
+                        existing_account = pre[address_or_tag]
+                        if existing_account is not None:
+                            if "code" in account_properties:
+                                existing_account.code = account_properties["code"]
+                            if "nonce" in account_properties:
+                                existing_account.nonce = account_properties["nonce"]
+                            if "storage" in account_properties:
+                                existing_account.storage = account_properties["storage"]
+                        resolved_accounts[address_or_tag.hex()] = address_or_tag
+
                     del unresolved_accounts_in_pre[address_or_tag]
 
             max_tries -= 1
+
         assert len(unresolved_accounts_in_pre) == 0, (
             f"Unresolved accounts: {unresolved_accounts_in_pre}, probably a circular dependency"
         )
