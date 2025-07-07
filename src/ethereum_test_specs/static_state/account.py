@@ -4,7 +4,7 @@ from typing import Any, Dict, Mapping
 
 from pydantic import BaseModel
 
-from ethereum_test_base_types import EthereumTestRootModel, HexNumber
+from ethereum_test_base_types import Bytes, EthereumTestRootModel, HexNumber, Storage
 from ethereum_test_types import Alloc
 
 from .common import (
@@ -138,13 +138,15 @@ class PreInFiller(EthereumTestRootModel):
                             deployed_account = pre[deployed_address]
                             if deployed_account is not None:
                                 if "code" in account_properties:
-                                    deployed_account.code = account_properties["code"]
+                                    deployed_account.code = Bytes(account_properties["code"])
                                 if "balance" in account_properties:
                                     deployed_account.balance = account_properties["balance"]
                                 if "nonce" in account_properties:
                                     deployed_account.nonce = account_properties["nonce"]
                                 if "storage" in account_properties:
-                                    deployed_account.storage = account_properties["storage"]
+                                    deployed_account.storage = Storage(
+                                        root=account_properties["storage"]
+                                    )
                         else:
                             # Normal tag resolution
                             account_properties = account.resolve(resolved_accounts)
@@ -169,14 +171,17 @@ class PreInFiller(EthereumTestRootModel):
                         account_properties = account.resolve(resolved_accounts)
                         if "balance" in account_properties:
                             pre.fund_address(address_or_tag, account_properties["balance"])
+
                         existing_account = pre[address_or_tag]
                         if existing_account is not None:
                             if "code" in account_properties:
-                                existing_account.code = account_properties["code"]
+                                existing_account.code = Bytes(account_properties["code"])
                             if "nonce" in account_properties:
                                 existing_account.nonce = account_properties["nonce"]
                             if "storage" in account_properties:
-                                existing_account.storage = account_properties["storage"]
+                                existing_account.storage = Storage(
+                                    root=account_properties["storage"]
+                                )
                         resolved_accounts[address_or_tag.hex()] = address_or_tag
 
                     del unresolved_accounts_in_pre[address_or_tag]

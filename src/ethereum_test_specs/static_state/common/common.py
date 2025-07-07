@@ -66,20 +66,24 @@ class CodeInFiller(BaseModel, TagDependentData):
     @model_validator(mode="before")
     @classmethod
     def validate_from_string(cls, code: Any) -> Any:
-        """Validate the sender tag from string: <eoa:name:0x...>."""
+        """Validate from string, separating label from code source."""
         if isinstance(code, str):
             label_marker = ":label"
             label_index = code.find(label_marker)
 
             # Parse :label into code options
             label = None
+            source = code
             if label_index != -1:
                 space_index = code.find(" ", label_index + len(label_marker) + 1)
                 if space_index == -1:
                     label = code[label_index + len(label_marker) + 1 :]
+                    source = ""  # No source after label
                 else:
                     label = code[label_index + len(label_marker) + 1 : space_index]
-            return {"label": label, "source": code}
+                    source = code[space_index + 1 :].strip()
+
+            return {"label": label, "source": source}
         return code
 
     def model_post_init(self, context):
@@ -101,7 +105,7 @@ class CodeInFiller(BaseModel, TagDependentData):
             return bytes.fromhex(hex_str)
 
         if not isinstance(raw_code, str):
-            raise ValueError(f"parse_code(code: str) code is not string: {raw_code}")
+            raise ValueError(f"code is of type {type(raw_code)} but expected a string: {raw_code}")
         if len(raw_code) == 0:
             return b""
 
