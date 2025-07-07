@@ -65,6 +65,8 @@ FALSE_POSITIVE_TESTS = {
 # Path patterns for incompatible tests - can include full filenames or directory patterns
 INCOMPATIBLE_PATH_PATTERNS = {
     # Exact filenames (existing)
+    "push0Filler.yml",
+    "push0Gas2Filler.yml"
     "create2InitCodeSizeLimitFiller.yml",
     "createInitCodeSizeLimitFiller.yml",
     "creationTxInitCodeSizeLimitFiller.yml",
@@ -391,6 +393,7 @@ SHORT_NAME_FILLERS = {
     "coinbaseT2Filler.yml",
     "doubleSelfdestructTouch_ParisFiller.yml",
     "tooLongReturnDataCopyFiller.yml",
+    "coinbaseWarmAccountCallGasFailFiller.yml"
 }
 
 # Fillers that should have precompile check disabled
@@ -551,7 +554,10 @@ class SimpleAddressConverter:
             if "storage:{}" in stripped or re.search(r"storage:\s*\{\s*\}", line):
                 return None  # Don't change context for empty storage
             return Context.STORAGE
-        elif any(kw in stripped for kw in {"balance:", "nonce:"}):
+        # Known fields that indicate we're back in NORMAL context
+        elif any(kw in stripped for kw in {"balance:", "nonce:", "secretKey:", "gasLimit:", 
+                                           "gasPrice:", "value:", "to:", "from:", "address:",
+                                           "shouldnotexist:", "indexes:", "network:", "result:"}):
             return Context.NORMAL
         return None
 
@@ -568,17 +574,19 @@ class SimpleAddressConverter:
             return None
 
         # Strip leading zeros
-        stripped = addr.lstrip("0")
+        lstripped = addr.lstrip("0")
 
         # If nothing left after stripping leading zeros, it's all zeros
-        if not stripped:
+        if not lstripped:
             return None
 
         # Strip trailing zeros
-        stripped = stripped.rstrip("0")
+        stripped = lstripped.rstrip("0")
 
         # If nothing left after stripping trailing zeros, or too short, return None
         if not stripped or len(stripped) < 2:
+            if len(lstripped) >= 2:
+                return f"0x{lstripped}"
             return None
 
         return f"0x{stripped}"
@@ -591,7 +599,7 @@ class SimpleAddressConverter:
         current_result_address = None
         looking_for_shouldnotexist = False
 
-        for line in lines:
+        for line_num, line in enumerate(lines, 1):
             stripped = line.strip()
             stripped_no_spaces_or_quotes = (
                 stripped.replace('"', "")
@@ -614,12 +622,12 @@ class SimpleAddressConverter:
             # Do this FIRST before any other context checks
             if current_section in [Section.PRE, Section.RESULT]:
                 # Check if this line is an address key (40 hex chars followed by colon)
-                if re.match(r"^\s*(?:0x)?[a-fA-F0-9]{40}\s*:", line, re.IGNORECASE):
+                # Also check for quoted addresses in JSON format
+                if (re.match(r"^\s*(?:0x)?[a-fA-F0-9]{40}\s*:", line, re.IGNORECASE) or
+                    re.match(r'^\s*"(?:0x)?[a-fA-F0-9]{40}"\s*:', line, re.IGNORECASE)):
                     current_context = Context.NORMAL
 
-            # Reset context on closing braces
-            if stripped and stripped[-1] in {"}", "]"}:
-                current_context = Context.NORMAL
+            # Don't reset context on closing braces - let field names determine context
 
             # Only collect addresses from pre section
             if current_section == Section.PRE:
@@ -902,7 +910,8 @@ class SimpleAddressConverter:
                 continue
 
             # Skip replacements in code/storage if no_tags_in_code is set
-            if self.no_tags_in_code and context in [Context.CODE, Context.STORAGE]:
+            # EXCEPT for address keys which should always be replaced
+            if self.no_tags_in_code and context in [Context.CODE, Context.STORAGE] and not is_address_key:
                 continue
 
             # Use regex to find and replace addresses (case-insensitive)
@@ -976,7 +985,7 @@ class SimpleAddressConverter:
             line = line_with_placeholders
 
         # Replace short names with tags for SHORT_NAME_FILLERS
-        if self.is_short_name_filler and self.short_name_mappings:
+        if self.is_short_name_filler and self.short_name_mappings and context == Context.CODE:
             # Sort short names by length (longest first) to avoid partial replacements
             sorted_short_names = sorted(
                 self.short_name_mappings.items(), key=lambda x: len(x[0]), reverse=True
@@ -1062,10 +1071,6 @@ def convert_file(file_path: str) -> bool:
             new_section = converter.detect_section(line)
             if new_section:
                 current_section = new_section
-                current_context = Context.NORMAL
-
-            # Reset context on closing braces BEFORE converting the line
-            if stripped and stripped[-1] in {"}", "]"}:
                 current_context = Context.NORMAL
 
             # Reset context on various keywords BEFORE converting the line

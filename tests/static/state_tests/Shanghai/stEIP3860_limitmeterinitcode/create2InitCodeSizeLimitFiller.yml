@@ -9,12 +9,12 @@ create2InitCodeSizeLimit:
     currentTimestamp: '1000'
 
   pre:
-    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: 200000000
       code: ''
       nonce: 0
       storage: {}
-    b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+    <contract:target:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
       balance: 0
       code: |
         :yul berlin 
@@ -53,8 +53,8 @@ create2InitCodeSizeLimit:
       - 15000000
     gasPrice: 10
     nonce: 0
-    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
-    to: 'b94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+    secretKey: "<eoa:sender:0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8>"
+    to: '<contract:target:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b>'
     value:
     - 0
 
@@ -64,9 +64,9 @@ create2InitCodeSizeLimit:
       network:
         - '>=Cancun'
       result:
-       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
           nonce: 1
-       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <contract:target:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
           storage:
               '0': 1 # subcall successful
               '1': 1 # test successful, no OOG
@@ -86,14 +86,14 @@ create2InitCodeSizeLimit:
       network:
         - '>=Cancun'
       result:
-       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <eoa:sender:0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
           nonce: 1
-       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+       <contract:target:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b>:
           nonce: 0
           storage:
               '0': 0 # subcall aborted
               '1': 1 # test successful, no OOG
        c94f5374fce5edbc8e2a8697c15331677e6ebf0b:
           storage: {}
-       67d49ae27e912b3b508d62ce1e463298db6edf32:
+       <contract:creation:0x67d49ae27e912b3b508d62ce1e463298db6edf32>:
           shouldnotexist: 1
