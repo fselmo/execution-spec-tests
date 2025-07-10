@@ -1,11 +1,23 @@
 """Account structure of ethereum/tests fillers."""
 
-from typing import Any, Dict, List, Mapping, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Set, Tuple
 
 from pydantic import BaseModel
 
-from ethereum_test_base_types import Bytes, EthereumTestRootModel, HexNumber, Storage
+if TYPE_CHECKING:
+    from .environment import EnvironmentInStateTestFiller
+    from .expect_section import ResultInFiller
+
+from ethereum_test_base_types import (
+    Account,
+    Address,
+    Bytes,
+    EthereumTestRootModel,
+    HexNumber,
+    Storage,
+)
 from ethereum_test_types import Alloc
+from ethereum_test_types.block_types import EnvironmentGeneric
 
 from .common import (
     AddressOrTagInFiller,
@@ -84,6 +96,17 @@ class AccountInFiller(BaseModel, TagDependentData):
                 account_properties["storage"] = resolved_storage
         return account_properties
 
+    def __hash__(self) -> int:
+        """Generate deterministic hash for the account."""
+        # Create a tuple of hashable representations
+        hash_tuple = (
+            self.balance if self.balance is not None else None,
+            str(self.code) if self.code is not None else None,
+            self.nonce if self.nonce is not None else None,
+            str(self.storage) if self.storage is not None else None,
+        )
+        return hash(hash_tuple)
+
 
 class PreInFiller(EthereumTestRootModel):
     """Class that represents a pre-state in filler."""
@@ -142,7 +165,14 @@ class PreInFiller(EthereumTestRootModel):
 
         return sorted_nodes
 
-    def setup(self, pre: Alloc, all_dependencies: Dict[str, Tag]) -> TagDict:
+    def setup(
+        self,
+        pre: Alloc,
+        all_dependencies: Dict[str, Tag],
+        env: "EnvironmentInStateTestFiller | None" = None,
+        expect_result: "ResultInFiller | None" = None,
+        request: Any = None,
+    ) -> TagDict:
         """Resolve the pre-state with improved tag resolution."""
         resolved_accounts: TagDict = {}
 
@@ -174,12 +204,78 @@ class PreInFiller(EthereumTestRootModel):
             if tag_name in tag_to_address:
                 tag = tag_to_address[tag_name]
                 if isinstance(tag, ContractTag):
-                    # Deploy with placeholder to get address
-                    deployed_address = pre.deploy_contract(
-                        code=b"",  # Temporary placeholder
-                        label=tag_name,
+                    # Check if this is a coinbase tag during pre-alloc generation
+                    is_coinbase = (
+                        env is not None
+                        and isinstance(env.current_coinbase, Tag)
+                        and env.current_coinbase.name == tag_name
                     )
-                    resolved_accounts[tag_name] = deployed_address
+
+                    if is_coinbase and expect_result is not None and request is not None:
+                        # Check if we're in pre-alloc generation or usage mode
+                        generate_groups = request.config.getoption(
+                            "generate_pre_alloc_groups", False
+                        )
+                        use_groups = request.config.getoption("use_pre_alloc_groups", False)
+                        if generate_groups or use_groups:
+                            # Get pre-state account
+                            coinbase_account = tagged_accounts.get(tag)
+
+                            # Check if account has any pre-state
+                            has_pre_state = coinbase_account is not None and (
+                                coinbase_account.code is not None
+                                or coinbase_account.storage is not None
+                                or coinbase_account.balance is not None
+                                or coinbase_account.nonce is not None
+                            )
+
+                            # Find post-state expectations for this coinbase
+                            coinbase_post_account = None
+                            has_post_state = False
+                            for addr_or_tag, result_account in expect_result.root.items():
+                                if isinstance(addr_or_tag, Tag) and addr_or_tag.name == tag_name:
+                                    if result_account is not None:
+                                        has_post_state = True
+                                        coinbase_post_account = result_account
+                                    break
+
+                            # If no state changes, use the default fee_recipient
+                            if not has_pre_state and not has_post_state:
+                                deployed_address = EnvironmentGeneric.model_fields[
+                                    "fee_recipient"
+                                ].default
+                                resolved_accounts[tag_name] = deployed_address
+                            else:
+                                # Use hash to create deterministic address
+                                # Combine pre and post hashes
+                                pre_hash = hash(coinbase_account) if coinbase_account else 0
+                                post_hash = (
+                                    hash(coinbase_post_account) if coinbase_post_account else 0
+                                )
+                                combined_hash = hash((pre_hash, post_hash))
+
+                                hash_bytes = abs(combined_hash).to_bytes(32, byteorder="big")
+                                # Start with 0xc01b (coinbase) prefix
+                                address_bytes = b"\xc0\x1b" + hash_bytes[:18]
+                                deployed_address = Address(address_bytes)
+                                resolved_accounts[tag_name] = deployed_address
+                                # Manually add to pre-alloc if it doesn't exist
+                                if deployed_address not in pre:
+                                    pre[deployed_address] = Account()
+                        else:
+                            # Not in pre-alloc generation, normal deployment
+                            deployed_address = pre.deploy_contract(
+                                code=b"",  # Temporary placeholder
+                                label=tag_name,
+                            )
+                            resolved_accounts[tag_name] = deployed_address
+                    else:
+                        # Not a coinbase tag, normal deployment
+                        deployed_address = pre.deploy_contract(
+                            code=b"",  # Temporary placeholder
+                            label=tag_name,
+                        )
+                        resolved_accounts[tag_name] = deployed_address
                 elif isinstance(tag, SenderTag):
                     # Create EOA to get address - use amount=1 to ensure account is created
                     eoa = pre.fund_eoa(amount=1, label=tag_name)

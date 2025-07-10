@@ -126,6 +126,17 @@ class AccountInExpectSection(BaseModel, TagDependentData):
             account_kwargs["nonce"] = self.nonce
         return Account(**account_kwargs)
 
+    def __hash__(self) -> int:
+        """Generate deterministic hash for the account in expect section."""
+        # Create a tuple of hashable representations
+        hash_tuple = (
+            self.balance if self.balance is not None else None,
+            str(self.code) if self.code is not None else None,
+            self.nonce if self.nonce is not None else None,
+            str(self.storage) if self.storage is not None else None,
+        )
+        return hash(hash_tuple)
+
 
 class CMP(Enum):
     """Comparison action."""

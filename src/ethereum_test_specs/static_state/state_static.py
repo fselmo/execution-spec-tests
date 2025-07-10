@@ -130,6 +130,7 @@ class StateStaticTest(BaseStaticTest):
             state_test: StateTestFiller,
             pre: Alloc,
             fork: Fork,
+            request: pytest.FixtureRequest,
             d: int,
             g: int,
             v: int,
@@ -140,7 +141,14 @@ class StateStaticTest(BaseStaticTest):
                         tx_tag_dependencies = self.transaction.tag_dependencies()
                         result_tag_dependencies = expect.result.tag_dependencies()
                         all_dependencies = {**tx_tag_dependencies, **result_tag_dependencies}
-                        tags = self.pre.setup(pre, all_dependencies)
+                        # Pass context for coinbase resolution during pre-alloc generation
+                        tags = self.pre.setup(
+                            pre,
+                            all_dependencies,
+                            env=self.env,
+                            expect_result=expect.result,
+                            request=request,
+                        )
                         env = self.env.get_environment(tags)
                         exception = (
                             None

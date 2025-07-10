@@ -138,7 +138,7 @@ INCOMPATIBLE_PATH_PATTERNS = {
     # stExample
     "add11_ymlFiller.yml",
     "add11Filler.json",
-   
+
     # stExtCodeHash
     "extcodehashEmpty_ParisFiller.yml",
     "extCodeHashSelfInInitFiller.json",
@@ -165,7 +165,7 @@ INCOMPATIBLE_PATH_PATTERNS = {
     "extCodeHashCreatedAndDeletedAccountCallFiller.json",
     "createEmptyThenExtcodehashFiller.json",
     "contractCreationOOGdontLeaveEmptyContractViaTransactionFiller.json",
-    
+
     # Really only `ReturnTestFiller` and `ReturnTest2Filler` are compatible inside `stInitCodeTest`
     "CallContractToCreateContractAndCallItOOGFiller.json",
     "CallContractToCreateContractOOGBonusGasFiller.json",
@@ -272,8 +272,6 @@ INCOMPATIBLE_PATH_PATTERNS = {
     "RevertOpcodeInInitFiller.json",
     "RevertOpcodeWithBigOutputInInitFiller.json",
     "ByZeroFiller.json",
-    "RecursiveCreateContractsCreate4ContractsFiller.json",
-    "RecursiveCreateContractsFiller.json",
     "TestCryptographicFunctionsFiller.json",
     "StackDepthLimitSECFiller.json",
     "eoaEmptyParisFiller.yml",
@@ -390,14 +388,14 @@ INCOMPATIBLE_PATH_PATTERNS = {
     "suicideCallerAddresTooBigLeftFiller.json",
     "ABAcallsSuicide1Filler.json",
 
-    
+
     "/stCreate2/",
     "/stCreateTest/",
     "/stRecursiveCreate/",
     "/stWalletTest/",
     "/stZeroKnowledge/",
     "/stZeroKnowledge2/",
-    
+
     # TODO: See if these can be turned on with fine tuning
     "/stTimeConsuming/",
 }
