@@ -68,6 +68,7 @@ INCOMPATIBLE_PATH_PATTERNS = {
     # Exact filenames (existing)
     "push0Filler.yml",
     "push0Gas2Filler.yml",
+    "transStorageResetFiller.yml",
     "ContractCreationSpamFiller.json",
     "create2InitCodeSizeLimitFiller.yml",
     "createInitCodeSizeLimitFiller.yml",
@@ -425,7 +426,6 @@ def is_incompatible_file(file_path: Path) -> bool:
 
 
 DO_NOT_TAG_ADDRESSES = {
-    "transStorageResetFiller.yml": {"000000000000000000000000000000003f8390d5"},
     "transStorageOKFiller.yml": {
         "000000000000000000000000000000005d7935df",
         "00000000000000000000000000000000000057a7",
@@ -458,7 +458,6 @@ DO_NOT_TAG_ADDRESSES = {
 }
 
 SHORT_NAME_FILLERS = {
-    "transStorageResetFiller.yml",
     "invalidAddrFiller.yml",
     "precompsEIP2929CancunFiller.yml",
     "addressOpcodesFiller.yml",
