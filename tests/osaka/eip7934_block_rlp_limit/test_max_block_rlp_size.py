@@ -373,6 +373,7 @@ def _exact_size_transactions_impl(
         pytest.param(1, id="max_rlp_size_plus_1_byte", marks=pytest.mark.exception_test),
     ],
 )
+@pytest.mark.blockchain_engine_sync_test
 def test_block_at_rlp_size_limit_boundary(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -425,6 +426,7 @@ def test_block_at_rlp_size_limit_boundary(
 
 
 @pytest.mark.with_all_typed_transactions
+@pytest.mark.blockchain_engine_sync_test
 def test_block_rlp_size_at_limit_with_all_typed_transactions(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -462,6 +464,7 @@ def test_block_rlp_size_at_limit_with_all_typed_transactions(
     )
 
 
+@pytest.mark.blockchain_engine_sync_test
 def test_block_at_rlp_limit_with_logs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
