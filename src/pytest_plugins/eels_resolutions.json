@@ -38,6 +38,9 @@
         "same_as": "EELSMaster"
     },
     "Osaka": {
-        "path": "../execution-specs"
+        "git_url": "https://github.com/fselmo/execution-specs.git",
+        "branch": "rebase-bals",
+        "commit": "8b717e507a46014473c208af50cd8329d5c2333d"
+
     }
 }
