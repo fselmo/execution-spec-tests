@@ -133,11 +133,9 @@ INCOMPATIBLE_PATH_PATTERNS = {
     "storageCostsFiller.yml",
     "variedContextFiller.yml",
     "vitalikTransactionTestParisFiller.json",
-
     # stExample
     "add11_ymlFiller.yml",
     "add11Filler.json",
-   
     # stExtCodeHash
     "extcodehashEmpty_ParisFiller.yml",
     "extCodeHashSelfInInitFiller.json",
@@ -164,7 +162,6 @@ INCOMPATIBLE_PATH_PATTERNS = {
     "extCodeHashCreatedAndDeletedAccountCallFiller.json",
     "createEmptyThenExtcodehashFiller.json",
     "contractCreationOOGdontLeaveEmptyContractViaTransactionFiller.json",
-    
     # Really only `ReturnTestFiller` and `ReturnTest2Filler` are compatible inside `stInitCodeTest`
     "CallContractToCreateContractAndCallItOOGFiller.json",
     "CallContractToCreateContractOOGBonusGasFiller.json",
@@ -179,8 +176,6 @@ INCOMPATIBLE_PATH_PATTERNS = {
     "OutOfGasContractCreationFiller.json",
     "OutOfGasPrefundedContractCreationFiller.json",
     "TransactionCreateStopInInitcodeFiller.json",
-
-
     # stInitCodeTest
     "ReturnTestFiller.json",
     "ReturnTest2Filler.json",
@@ -189,7 +184,6 @@ INCOMPATIBLE_PATH_PATTERNS = {
     "CREATE_BoundsFiller.json",
     "NonZeroValue_CALLCODEFiller.json",
     "NonZeroValue_DELEGATECALLFiller.json",
-
     "bufferFiller.yml",
     "bufferSrcOffsetFiller.yml",
     "callDataCopyOffsetFiller.json",
@@ -213,7 +207,6 @@ INCOMPATIBLE_PATH_PATTERNS = {
     "Create1000ShnghaiFiller.json",
     "QuadraticComplexitySolidity_CallDataCopyFiller.json",
     "testRandomTestFiller.json",
-
     # uses coinbase address (0x41) as integer memory offsets. TODO: is this necessary for the test?
     # we could end up changing this for compatibility instead.
     "randomStatetest1Filler.json",
@@ -247,17 +240,14 @@ INCOMPATIBLE_PATH_PATTERNS = {
     "Call50000_sha256Filler.json",
     "Create1000ByzantiumFiller.json",
     "Create1000Filler.json",
-
     # stRecursiveCreate
     "RecursiveCreateContractsCreate4ContractsFiller.json",
     "RecursiveCreateContractsFiller.json",
-
     # stStackTests
     "shallowStackFiller.json",
     "stackOverflowFiller.json",
     "stackOverflowDUPFiller.json",
     "stackOverflowPUSHFiller.json",
-
     "revertRetDataSizeFiller.yml",
     "returndatacopy_0_0_following_successful_createFiller.json",
     "RevertPrefoundFiller.json",
@@ -388,15 +378,12 @@ INCOMPATIBLE_PATH_PATTERNS = {
     "createNameRegistratorValueTooHighFiller.json",
     "suicideCallerAddresTooBigLeftFiller.json",
     "ABAcallsSuicide1Filler.json",
-
-    
     "/stCreate2/",
     "/stCreateTest/",
     "/stRecursiveCreate/",
     "/stWalletTest/",
     "/stZeroKnowledge/",
     "/stZeroKnowledge2/",
-    
     # TODO: See if these can be turned on with fine tuning
     "/stTimeConsuming/",
 }
@@ -448,9 +435,7 @@ DO_NOT_TAG_ADDRESSES = {
         "ccccccccccccccccccccccccccccccccccccccc1",
         "ccccccccccccccccccccccccccccccccccccccc2",
     },
-    "callToSuicideThenExtcodehashFiller.json": {
-        "0000000000000000000000000000000000000025"
-    },
+    "callToSuicideThenExtcodehashFiller.json": {"0000000000000000000000000000000000000025"},
     "doubleSelfdestructTouch_ParisFiller.yml": {
         "0000000000000000000000000000000000e49701",
         "0000000000000000000000000000000000e49702",
@@ -466,7 +451,7 @@ SHORT_NAME_FILLERS = {
     "coinbaseT2Filler.yml",
     "doubleSelfdestructTouch_ParisFiller.yml",
     "tooLongReturnDataCopyFiller.yml",
-    "coinbaseWarmAccountCallGasFailFiller.yml"
+    "coinbaseWarmAccountCallGasFailFiller.yml",
 }
 
 # Fillers that should have precompile check disabled
@@ -576,9 +561,7 @@ class SimpleAddressConverter:
         self.coinbase_addr: Optional[str] = None
         self.target_addr: Optional[str] = None
         self.is_json = filename.lower().endswith(".json")
-        self.skip_precompile_check = any(
-            kw in filename for kw in DISABLE_PRECOMPILE_CHECK_FILLERS
-        )
+        self.skip_precompile_check = any(kw in filename for kw in DISABLE_PRECOMPILE_CHECK_FILLERS)
         self.no_tags_in_code = any(kw in filename for kw in NO_TAGS_IN_CODE)
         self.validate_addr_entropy_in_code = any(
             kw in filename for kw in VALIDATE_ADDR_ENTROPY_IN_CODE
@@ -628,9 +611,24 @@ class SimpleAddressConverter:
                 return None  # Don't change context for empty storage
             return Context.STORAGE
         # Known fields that indicate we're back in NORMAL context
-        elif any(kw in stripped for kw in {"balance:", "nonce:", "secretKey:", "gasLimit:",
-                                           "gasPrice:", "value:", "to:", "from:", "address:",
-                                           "shouldnotexist:", "indexes:", "network:", "result:"}):
+        elif any(
+            kw in stripped
+            for kw in {
+                "balance:",
+                "nonce:",
+                "secretKey:",
+                "gasLimit:",
+                "gasPrice:",
+                "value:",
+                "to:",
+                "from:",
+                "address:",
+                "shouldnotexist:",
+                "indexes:",
+                "network:",
+                "result:",
+            }
+        ):
             return Context.NORMAL
         return None
 
@@ -677,10 +675,7 @@ class SimpleAddressConverter:
         for line_num, line in enumerate(lines, 1):
             stripped = line.strip()
             stripped_no_spaces_or_quotes = (
-                stripped.replace('"', "")
-                .replace("'", "")
-                .replace(" ", "")
-                .replace(",", "")
+                stripped.replace('"', "").replace("'", "").replace(" ", "").replace(",", "")
             )
 
             # Check for section changes
@@ -698,8 +693,9 @@ class SimpleAddressConverter:
             if current_section in [Section.PRE, Section.RESULT]:
                 # Check if this line is an address key (40 hex chars followed by colon)
                 # Also check for quoted addresses in JSON format
-                if (re.match(r"^\s*(?:0x)?[a-fA-F0-9]{40}\s*:", line, re.IGNORECASE) or
-                    re.match(r'^\s*"(?:0x)?[a-fA-F0-9]{40}"\s*:', line, re.IGNORECASE)):
+                if re.match(r"^\s*(?:0x)?[a-fA-F0-9]{40}\s*:", line, re.IGNORECASE) or re.match(
+                    r'^\s*"(?:0x)?[a-fA-F0-9]{40}"\s*:', line, re.IGNORECASE
+                ):
                     current_context = Context.NORMAL
 
             # Don't reset context on closing braces - let field names determine context
@@ -777,9 +773,7 @@ class SimpleAddressConverter:
                             if (
                                 code_content
                                 and code_content not in ["", "0x", "0X", "{}", "[]"]
-                                and (
-                                    code_content in ["|", ">"] or len(code_content) > 2
-                                )
+                                and (code_content in ["|", ">"] or len(code_content) > 2)
                             ):
                                 self.addresses_with_code.add(current_address)
                     # Also check during CODE context for multi-line code
@@ -789,11 +783,7 @@ class SimpleAddressConverter:
                             kw in stripped_no_spaces_or_quotes
                             for kw in {"balance:", "nonce:", "storage:"}
                         ):
-                            if (
-                                stripped
-                                and not stripped.startswith("#")
-                                and "{" not in stripped
-                            ):
+                            if stripped and not stripped.startswith("#") and "{" not in stripped:
                                 # Any non-empty, non-comment, non-brace line in code section indicates there's code
                                 self.addresses_with_code.add(current_address)
 
@@ -807,10 +797,7 @@ class SimpleAddressConverter:
                         if (
                             code_content
                             and code_content not in ["", "0x", "{}", "[]"]
-                            and (
-                                not code_content.startswith("0x")
-                                or len(code_content) > 3
-                            )
+                            and (not code_content.startswith("0x") or len(code_content) > 3)
                         ):  # More than just "0x"
                             self.addresses_with_code.add(current_address)
 
@@ -958,9 +945,7 @@ class SimpleAddressConverter:
                         f"'{KNOWN_SECRET_KEY}'", f"'<eoa:sender:0x{KNOWN_SECRET_KEY}>'"
                     )
                 elif KNOWN_SECRET_KEY in line:
-                    line = line.replace(
-                        KNOWN_SECRET_KEY, f'"<eoa:sender:0x{KNOWN_SECRET_KEY}>"'
-                    )
+                    line = line.replace(KNOWN_SECRET_KEY, f'"<eoa:sender:0x{KNOWN_SECRET_KEY}>"')
                 return line
 
         # Sort addresses by length (longest first) to avoid partial replacements
@@ -984,20 +969,19 @@ class SimpleAddressConverter:
 
             # Skip replacements in code/storage if no_tags_in_code is set
             # EXCEPT for address keys which should always be replaced
-            if self.no_tags_in_code and context in [Context.CODE, Context.STORAGE] and not is_address_key:
+            if (
+                self.no_tags_in_code
+                and context in [Context.CODE, Context.STORAGE]
+                and not is_address_key
+            ):
                 continue
 
             # Use regex to find and replace addresses (case-insensitive)
             # Pattern 1: Address followed by colon (as a key) - with or without 0x prefix
-            pattern_key = re.compile(
-                rf'(^|\s|"|\')(?:0x)?{re.escape(addr)}(?=:)', re.IGNORECASE
-            )
+            pattern_key = re.compile(rf'(^|\s|"|\')(?:0x)?{re.escape(addr)}(?=:)', re.IGNORECASE)
             if pattern_key.search(line):
                 # Skip replacement if we're in storage context, depending on dont_replace_tags_in_storage_keys
-                if (
-                    context != Context.STORAGE
-                    and not self.dont_replace_tags_in_storage_keys
-                ):
+                if context != Context.STORAGE and not self.dont_replace_tags_in_storage_keys:
                     # Replace while preserving the prefix (whitespace, quote, etc)
                     line = pattern_key.sub(r"\1" + tag, line)
 
@@ -1022,38 +1006,26 @@ class SimpleAddressConverter:
                 # In storage context, handle keys and values separately
                 if not self.dont_replace_tags_in_storage_keys:
                     # Replace addresses everywhere in storage, including keys
-                    pattern_general = re.compile(
-                        rf"(?:0x)?{re.escape(addr)}", re.IGNORECASE
-                    )
-                    line_with_placeholders = pattern_general.sub(
-                        tag, line_with_placeholders
-                    )
+                    pattern_general = re.compile(rf"(?:0x)?{re.escape(addr)}", re.IGNORECASE)
+                    line_with_placeholders = pattern_general.sub(tag, line_with_placeholders)
                 else:
                     # Default behavior: only replace in values, not keys
                     # Split by colon and only replace in values
                     parts = line_with_placeholders.split(":")
                     for i in range(1, len(parts)):  # Skip first part (the key)
                         # Replace address in this part
-                        pattern_general = re.compile(
-                            rf"(?:0x)?{re.escape(addr)}", re.IGNORECASE
-                        )
+                        pattern_general = re.compile(rf"(?:0x)?{re.escape(addr)}", re.IGNORECASE)
                         parts[i] = pattern_general.sub(tag, parts[i])
                     line_with_placeholders = ":".join(parts)
             else:
                 # Not in storage context - replace all occurrences
-                pattern_general = re.compile(
-                    rf"(?:0x)?{re.escape(addr)}", re.IGNORECASE
-                )
-                line_with_placeholders = pattern_general.sub(
-                    tag, line_with_placeholders
-                )
+                pattern_general = re.compile(rf"(?:0x)?{re.escape(addr)}", re.IGNORECASE)
+                line_with_placeholders = pattern_general.sub(tag, line_with_placeholders)
 
             # Restore protected tags
             for i, protected_tag in enumerate(protected_tags):
                 placeholder = f"__TAG_PLACEHOLDER_{i}__"
-                line_with_placeholders = line_with_placeholders.replace(
-                    placeholder, protected_tag
-                )
+                line_with_placeholders = line_with_placeholders.replace(placeholder, protected_tag)
 
             line = line_with_placeholders
 
@@ -1072,9 +1044,7 @@ class SimpleAddressConverter:
                 # Only replace short names in code/storage values, not in address keys
                 if not is_address_key:
                     # Extract the hex part without 0x prefix from short_name
-                    hex_part = (
-                        short_name[2:] if short_name.startswith("0x") else short_name
-                    )
+                    hex_part = short_name[2:] if short_name.startswith("0x") else short_name
 
                     # Create a pattern that matches the hex part with any number of leading/trailing zeros
                     # Pattern: optional 0x prefix, any number of zeros, the hex part, any number of zeros
@@ -1091,9 +1061,7 @@ class SimpleAddressConverter:
                         for match in reversed(matches):
                             # Only replace if it's a valid hex number (starts with 0x or is all hex)
                             match_text = match.group(0)
-                            if match_text.startswith("0x") or match_text.startswith(
-                                "0X"
-                            ):
+                            if match_text.startswith("0x") or match_text.startswith("0X"):
                                 line = line[: match.start()] + tag + line[match.end() :]
                             elif all(c in "0123456789abcdefABCDEF" for c in match_text):
                                 # Pure hex without 0x prefix - check context to ensure it's meant as an address
@@ -1102,16 +1070,10 @@ class SimpleAddressConverter:
                                 after = line[match.end() :].lstrip()
                                 if (
                                     before.endswith(('"', "'", ":", " ", "(", "[", ","))
-                                    or after.startswith(
-                                        ('"', "'", " ", ")", "]", ",", "\n")
-                                    )
+                                    or after.startswith(('"', "'", " ", ")", "]", ",", "\n"))
                                     or not before
                                 ):  # Start of line
-                                    line = (
-                                        line[: match.start()]
-                                        + tag
-                                        + line[match.end() :]
-                                    )
+                                    line = line[: match.start()] + tag + line[match.end() :]
 
         return line
 
@@ -1241,9 +1203,7 @@ def main():
             converted_json += 1
             print(f"Converted JSON: {file_path}")
 
-    print(
-        f"\nSummary: Converted {converted_yaml} YAML files and {converted_json} JSON files"
-    )
+    print(f"\nSummary: Converted {converted_yaml} YAML files and {converted_json} JSON files")
 
 
 if __name__ == "__main__":

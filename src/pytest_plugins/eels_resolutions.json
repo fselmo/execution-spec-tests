@@ -38,6 +38,11 @@
         "same_as": "EELSMaster"
     },
     "Osaka": {
-        "path": "../execution-specs"
+        "same_as": "EELSMaster"
+    },
+    "Amsterdam": {
+        "git_url": "https://github.com/fselmo/execution-specs.git",
+        "branch": "amsterdam-bals",
+        "commit": "96cd15dae20102cebe4f93617dc78a8f349bddbd"
     }
 }

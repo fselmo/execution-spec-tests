@@ -1437,11 +1437,6 @@ class Prague(Cancun):
 class Osaka(Prague, solc_name="cancun"):
     """Osaka fork."""
 
-    @classmethod
-    def header_bal_hash_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
-        """Hash of the block access list is required starting from Osaka fork."""
-        return True
-
     # update some blob constants
     BLOB_CONSTANTS = {
         **Prague.BLOB_CONSTANTS,  # same base constants as prague
@@ -1568,6 +1563,15 @@ class Osaka(Prague, solc_name="cancun"):
     def blob_base_cost(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """Return the base cost of a blob at a given fork."""
         return 2**13  # EIP-7918 new parameter
+
+
+class Amsterdam(Osaka):
+    """Amsterdam fork."""
+
+    @classmethod
+    def header_bal_hash_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+        """Hash of the block access list is required starting from Amsterdam fork."""
+        return True
 
 
 class BPO1(Osaka, bpo_fork=True):
