@@ -19,14 +19,14 @@ from ethereum_test_tools import (
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
-@pytest.mark.valid_from("Osaka")
-def test_bloatnet_sstore_cold(
+@pytest.mark.valid_from("Prague")
+def test_bloatnet_sstore_0_to_1(
     blockchain_test: BlockchainTestFiller, pre: Alloc, fork: Fork, gas_benchmark_value: int
 ):
     """
-    Benchmark test that maximizes cold SSTORE operations (0 -> 1) by filling
+    Benchmark test that maximizes SSTORE operations (0 -> 1) by filling
     a block with multiple transactions, with each one containing a contract
-    that performs a set of cold SSTOREs.
+    that performs a set of SSTOREs.
 
     The test iteratively creates new transactions until the cumulative gas used
     reaches the block's gas benchmark value. Each transaction deploys a contract
@@ -48,7 +48,7 @@ def test_bloatnet_sstore_cold(
 
     expected_storage_state = {}
 
-    while total_block_gas_used < gas_benchmark_value:
+    while total_block_gas_used <= gas_benchmark_value:
         remaining_block_gas = gas_benchmark_value - total_block_gas_used
         tx_gas_limit = min(remaining_block_gas, tx_gas_cap)
 
@@ -58,39 +58,25 @@ def test_bloatnet_sstore_cold(
 
         opcode_gas_budget = tx_gas_limit - intrinsic_gas
 
+        # Setup code to load value from calldata
         tx_contract_code = Op.PUSH0 + Op.CALLDATALOAD
-        tx_opcode_gas = (
-            gas_costs.G_BASE  # PUSH0
-            + gas_costs.G_VERY_LOW  # CALLDATALOAD
+        tx_opcode_gas = gas_costs.G_BASE + gas_costs.G_VERY_LOW  # PUSH0 + CALLDATALOAD
+
+        sstore_per_op_cost = (
+            gas_costs.G_VERY_LOW * 2  # PUSH + DUP1
+            + gas_costs.G_COLD_SLOAD
+            + gas_costs.G_STORAGE_SET  # SSTORE
         )
-        tx_sstores_count = 0
 
-        current_slot = total_sstores
-
-        pop_gas = gas_costs.G_BASE
-
-        while True:
-            sstore_per_op_cost = (
-                gas_costs.G_VERY_LOW * 2  # PUSH + DUP1
-                + gas_costs.G_COLD_SLOAD
-                + gas_costs.G_STORAGE_SET  # SSTORE
-            )
-
-            if tx_opcode_gas + sstore_per_op_cost + pop_gas > opcode_gas_budget:
-                break
-
-            tx_opcode_gas += sstore_per_op_cost
-            tx_contract_code += Op.SSTORE(current_slot, Op.DUP1)
-            tx_sstores_count += 1
-            current_slot += 1
+        tx_sstores_count = (opcode_gas_budget - tx_opcode_gas) // sstore_per_op_cost
 
         # If no SSTOREs could be added, we've filled the block
         if tx_sstores_count == 0:
             break
 
-        # Add a POP to clean up the stack at the end
-        tx_contract_code += Op.POP
-        tx_opcode_gas += pop_gas
+        tx_opcode_gas += sstore_per_op_cost * tx_sstores_count
+        for slot in range(total_sstores, total_sstores + tx_sstores_count):
+            tx_contract_code += Op.SSTORE(slot, Op.DUP1)
 
         contract_address = pre.deploy_contract(code=tx_contract_code)
         tx = Transaction(
@@ -111,17 +97,17 @@ def test_bloatnet_sstore_cold(
         tx_gas_used = actual_intrinsic_consumed + tx_opcode_gas
         total_block_gas_used += tx_gas_used
 
-        total_sstores += tx_sstores_count
-
         # update expected storage state for each contract
         expected_storage_state[contract_address] = Account(
             storage=Storage(
                 {
                     HashInt(slot): HashInt(storage_value)
-                    for slot in range(current_slot - tx_sstores_count, current_slot)
+                    for slot in range(total_sstores, total_sstores + tx_sstores_count)
                 }
             )
         )
+
+        total_sstores += tx_sstores_count
 
     blockchain_test(
         pre=pre,
@@ -131,16 +117,15 @@ def test_bloatnet_sstore_cold(
     )
 
 
-@pytest.mark.valid_from("Osaka")
-def test_bloatnet_sstore_warm(
+@pytest.mark.valid_from("Prague")
+def test_bloatnet_sstore_1_to_2(
     blockchain_test: BlockchainTestFiller, pre: Alloc, fork: Fork, gas_benchmark_value: int
 ):
     """
-    Benchmark test that maximizes warm SSTORE operations (1 -> 2).
+    Benchmark test that maximizes SSTORE operations (1 -> 2).
 
     This test pre-fills storage slots with value=1, then overwrites them with value=2.
     This represents the case of changing a non-zero value to a different non-zero value,
-    which is cheaper than cold SSTORE but still significant.
     """
     gas_costs = fork.gas_costs()
     intrinsic_gas_calc = fork.transaction_intrinsic_cost_calculator()
@@ -155,7 +140,7 @@ def test_bloatnet_sstore_warm(
     all_txs = []
     expected_storage_state = {}
 
-    while total_block_gas_used < gas_benchmark_value:
+    while total_block_gas_used <= gas_benchmark_value:
         remaining_block_gas = gas_benchmark_value - total_block_gas_used
         tx_gas_limit = min(remaining_block_gas, tx_gas_cap)
 
@@ -165,36 +150,24 @@ def test_bloatnet_sstore_warm(
 
         opcode_gas_budget = tx_gas_limit - intrinsic_gas
 
+        # Setup code to load value from calldata
         tx_contract_code = Op.PUSH0 + Op.CALLDATALOAD
-        tx_opcode_gas = (
-            gas_costs.G_BASE  # PUSH0
-            + gas_costs.G_VERY_LOW  # CALLDATALOAD
+        tx_opcode_gas = gas_costs.G_BASE + gas_costs.G_VERY_LOW  # PUSH0 + CALLDATALOAD
+
+        sstore_per_op_cost = (
+            gas_costs.G_VERY_LOW * 2  # PUSH + DUP1
+            + gas_costs.G_COLD_SLOAD
+            + gas_costs.G_STORAGE_RESET  # SSTORE
         )
-        tx_sstores_count = 0
 
-        current_slot = total_sstores
-        pop_gas = gas_costs.G_BASE
-
-        warm_sstore_cost = gas_costs.G_COLD_SLOAD + gas_costs.G_STORAGE_RESET
-        while True:
-            sstore_per_op_cost = (
-                gas_costs.G_VERY_LOW * 2  # PUSH + DUP1
-                + warm_sstore_cost  # SSTORE
-            )
-
-            if tx_opcode_gas + sstore_per_op_cost + pop_gas > opcode_gas_budget:
-                break
-
-            tx_opcode_gas += sstore_per_op_cost
-            tx_contract_code += Op.SSTORE(current_slot, Op.DUP1)
-            tx_sstores_count += 1
-            current_slot += 1
+        tx_sstores_count = (opcode_gas_budget - tx_opcode_gas) // sstore_per_op_cost
 
         if tx_sstores_count == 0:
             break
 
-        tx_contract_code += Op.POP
-        tx_opcode_gas += pop_gas
+        tx_opcode_gas += sstore_per_op_cost * tx_sstores_count
+        for slot in range(total_sstores, total_sstores + tx_sstores_count):
+            tx_contract_code += Op.SSTORE(slot, Op.DUP1)
 
         # Pre-fill storage with initial values
         initial_storage = {
@@ -219,16 +192,17 @@ def test_bloatnet_sstore_warm(
 
         tx_gas_used = actual_intrinsic_consumed + tx_opcode_gas
         total_block_gas_used += tx_gas_used
-        total_sstores += tx_sstores_count
 
         expected_storage_state[contract_address] = Account(
             storage=Storage(
                 {
                     HashInt(slot): HashInt(new_value)
-                    for slot in range(current_slot - tx_sstores_count, current_slot)
+                    for slot in range(total_sstores, total_sstores + tx_sstores_count)
                 }
             )
         )
+
+        total_sstores += tx_sstores_count
 
     blockchain_test(
         pre=pre,
