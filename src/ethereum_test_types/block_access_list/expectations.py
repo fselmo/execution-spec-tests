@@ -30,6 +30,8 @@ class BalAccountExpectation(CamelModel):
     Same as BalAccountChange but without the address field, used for expectations.
     """
 
+    model_config = CamelModel.model_config | {"extra": "forbid"}
+
     nonce_changes: List[BalNonceChange] = Field(
         default_factory=list, description="List of expected nonce changes"
     )
