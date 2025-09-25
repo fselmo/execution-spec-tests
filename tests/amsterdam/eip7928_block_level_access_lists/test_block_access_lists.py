@@ -324,8 +324,8 @@ def test_bal_self_destruct(
         # contract and calls it in this transaction.
 
         if pre_funded:
-            # we will pre-fund `1` so subtract `1` here
-            funds_to_expend -= 1
+            pre_fund_amount = 1
+            funds_to_expend -= pre_fund_amount
 
         bytecode_size = len(self_destruct_init_code)
         factory_bytecode = (
@@ -343,7 +343,7 @@ def test_bal_self_destruct(
 
         if pre_funded:
             # pre-fund `1`
-            pre.fund_address(address=kaboom_same_tx, amount=1)
+            pre.fund_address(address=kaboom_same_tx, amount=pre_fund_amount)
 
     tx = Transaction(
         sender=alice,
